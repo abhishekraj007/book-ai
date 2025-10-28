@@ -7,3 +7,5 @@
 - Write layout and components that should work in both light and dark mode.
 - Layout and components should be mobile first and responsive.
 - Do not write documentation .md file untill neccessary and it's a big feature.
+- use heroui-native for native app components and screens development
+- use shadcn-ui for web components and screens development

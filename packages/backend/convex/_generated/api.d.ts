@@ -11,8 +11,14 @@
 import type * as auth from "../auth.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
+import type * as lib_betterAuth_component from "../lib/betterAuth/component.js";
+import type * as lib_betterAuth_createAuth from "../lib/betterAuth/createAuth.js";
+import type * as lib_betterAuth_index from "../lib/betterAuth/index.js";
+import type * as model_user from "../model/user.js";
 import type * as privateData from "../privateData.js";
 import type * as todos from "../todos.js";
+import type * as user from "../user.js";
+import type * as util from "../util.js";
 
 import type {
   ApiFromModules,
@@ -32,8 +38,14 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   healthCheck: typeof healthCheck;
   http: typeof http;
+  "lib/betterAuth/component": typeof lib_betterAuth_component;
+  "lib/betterAuth/createAuth": typeof lib_betterAuth_createAuth;
+  "lib/betterAuth/index": typeof lib_betterAuth_index;
+  "model/user": typeof model_user;
   privateData: typeof privateData;
   todos: typeof todos;
+  user: typeof user;
+  util: typeof util;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 
