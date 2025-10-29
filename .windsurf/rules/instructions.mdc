@@ -1,7 +1,3 @@
----
-alwaysApply: true
----
-
 # Important
 
 - Divide logics and UI into hooks and components.

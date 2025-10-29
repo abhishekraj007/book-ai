@@ -17,8 +17,8 @@ export function createAuth(
     logger: {
       disabled: optionsOnly,
     },
-    // baseURL: "http://localhost:3004", // enable this for web login
-    baseURL: siteUrl, // enable this for mobile login
+    baseURL: "http://localhost:3004", // enable this for web login
+    // baseURL: siteUrl, // enable this for mobile login
     trustedOrigins: [siteUrl, nativeAppUrl, "http://localhost:3004"],
     database: authComponent.adapter(ctx),
     user: {
