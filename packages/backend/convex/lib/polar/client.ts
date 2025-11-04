@@ -1,10 +1,17 @@
 import { Polar } from "@convex-dev/polar";
 import { api, components } from "../../_generated/api";
+import { action } from "../../_generated/server";
+import { v } from "convex/values";
 
 /**
  * Polar Client Configuration
  * Centralized Polar setup for the application
  */
+
+// console.log(
+//   "process.env.POLAR_PRODUCT_PRO_MONTHLY",
+//   process.env.POLAR_PRODUCT_PRO_MONTHLY
+// );
 
 export const polar = new Polar(components.polar, {
   getUserInfo: async (
@@ -32,7 +39,9 @@ export const polar = new Polar(components.polar, {
   },
 });
 
-// Export Polar API functions
+// Export Polar API functions directly
+// Note: generateCheckoutLink may throw "Customer not created" if customer already exists
+// This is a known issue with the Polar component - it should be fixed in a future update
 export const {
   changeCurrentSubscription,
   cancelCurrentSubscription,

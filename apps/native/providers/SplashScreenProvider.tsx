@@ -1,9 +1,9 @@
-import { delay } from "@/utils/delay";
 import { useConvexAuth } from "convex/react";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import type React from "react";
 import { useEffect } from "react";
+import { delay } from "@/utils/delay";
 
 /**
  * NOTE

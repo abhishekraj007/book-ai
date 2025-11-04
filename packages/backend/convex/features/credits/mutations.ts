@@ -3,17 +3,18 @@ import { internalMutation } from "../../_generated/server";
 
 /**
  * Internal mutation to add bonus credits to user
- * Called by Polar webhook when subscription is created
+ * Called by webhook when subscription is created
+ * userId is the Better Auth user's _id (stored as string)
  */
 export const addBonusCredits = internalMutation({
   args: {
-    userId: v.id("user"),
+    userId: v.string(),
     bonusCredits: v.number(),
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db
       .query("profile")
-      .withIndex("by_auth_user_id", (q: any) => q.eq("authUserId", args.userId))
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.userId))
       .unique();
 
     if (!profile) {
@@ -33,17 +34,18 @@ export const addBonusCredits = internalMutation({
 
 /**
  * Internal mutation to add credits to user account
- * Called by Polar webhook when credit product is purchased
+ * Called by webhook when credit product is purchased
+ * userId is the Better Auth user's _id (stored as string)
  */
 export const addCreditsToUser = internalMutation({
   args: {
-    userId: v.id("user"),
+    userId: v.string(),
     amount: v.number(),
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db
       .query("profile")
-      .withIndex("by_auth_user_id", (q: any) => q.eq("authUserId", args.userId))
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.userId))
       .unique();
 
     if (!profile) {

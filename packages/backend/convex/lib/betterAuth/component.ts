@@ -46,8 +46,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
         /**
          * NOTE:
          * The entire deleted document is available
-         * Example:
-         * Delete the user's profile data if the user is being deleted
+         * Delete the user's profile data when the Better Auth user is being deleted
          */
 
         console.log("onDelete -> authUser", JSON.stringify(authUser, null, 2));
@@ -56,8 +55,10 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           .query("profile")
           .withIndex("by_auth_user_id", (q) => q.eq("authUserId", authUser._id))
           .unique();
+
         if (profile) {
           await ctx.db.delete(profile._id);
+          console.log("Deleted profile for user:", authUser._id);
         }
       },
     },

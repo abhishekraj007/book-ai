@@ -23,7 +23,7 @@ export default defineSchema({
   // Unified subscriptions table for both Polar (web) and RevenueCat (native)
   // Single source of truth for all subscription and premium status data
   subscriptions: defineTable({
-    userId: v.id("user"), // Better Auth user ID
+    userId: v.string(), // Better Auth user ID (stored as string)
     platform: v.union(v.literal("polar"), v.literal("revenuecat")),
 
     // Customer and subscription identifiers (required for tracking)
@@ -69,7 +69,7 @@ export default defineSchema({
 
   // Orders table for tracking one-time purchases (credit purchases)
   orders: defineTable({
-    userId: v.id("user"),
+    userId: v.string(), // Better Auth user ID (stored as string)
     platform: v.union(v.literal("polar"), v.literal("revenuecat")),
     platformOrderId: v.string(), // Unique order ID from platform
     platformProductId: v.string(), // Product ID that was purchased

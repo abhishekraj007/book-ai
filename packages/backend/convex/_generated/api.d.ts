@@ -30,6 +30,7 @@ import type * as lib_polar_index from "../lib/polar/index.js";
 import type * as lib_polar_products from "../lib/polar/products.js";
 import type * as lib_polar_sync from "../lib/polar/sync.js";
 import type * as lib_polarWebhooks from "../lib/polarWebhooks.js";
+import type * as lib_revenuecatWebhooks from "../lib/revenuecatWebhooks.js";
 import type * as migrations_addCreditsToProfiles from "../migrations/addCreditsToProfiles.js";
 import type * as model_user from "../model/user.js";
 import type * as privateData from "../privateData.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "lib/polar/products": typeof lib_polar_products;
   "lib/polar/sync": typeof lib_polar_sync;
   "lib/polarWebhooks": typeof lib_polarWebhooks;
+  "lib/revenuecatWebhooks": typeof lib_revenuecatWebhooks;
   "migrations/addCreditsToProfiles": typeof migrations_addCreditsToProfiles;
   "model/user": typeof model_user;
   privateData: typeof privateData;

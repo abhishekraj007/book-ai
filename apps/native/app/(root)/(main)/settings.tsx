@@ -1,4 +1,4 @@
-import { api, useQuery } from "@convex-starter/backend";
+import { api, useConvexAuth, useQuery } from "@convex-starter/backend";
 import {
   Button,
   Card,
@@ -7,7 +7,7 @@ import {
   Surface,
   useTheme,
 } from "heroui-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { FadeOut, ZoomIn } from "react-native-reanimated";
 import { authClient } from "@/lib/betterAuth/client";
@@ -22,12 +22,21 @@ import {
   Palette,
   Check,
 } from "lucide-react-native";
+import { router } from "expo-router";
 
 export default function SettingsRoute() {
   const { colors, theme, toggleTheme } = useTheme();
   const { currentThemeId, setThemeById, availableThemes } = useAppTheme();
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const userData = useQuery(api.user.fetchUserAndProfile);
+
+  const { isAuthenticated } = useConvexAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace("/(root)/(auth)");
+    }
+  }, [isAuthenticated]);
 
   const handleDeleteUser = async () => {
     const { error, data } = await authClient.deleteUser(
@@ -57,7 +66,7 @@ export default function SettingsRoute() {
   }
 
   return (
-    <View className="flex-1">
+    <View className="flex-1 bg-background">
       <ScrollView
         contentInsetAdjustmentBehavior="always"
         contentContainerClassName="px-6 py-6 gap-6"
@@ -166,6 +175,7 @@ export default function SettingsRoute() {
             </View>
           </View>
         </Surface>
+        <SignOutButton />
 
         {/* Danger Zone */}
         <Surface className="p-5 gap-4">
@@ -181,7 +191,6 @@ export default function SettingsRoute() {
             <Button
               variant="danger"
               size="md"
-              className="self-start"
               isDisabled={isDeletingUser}
               onPress={() => {
                 Alert.alert(
@@ -215,3 +224,55 @@ export default function SettingsRoute() {
     </View>
   );
 }
+
+const SignOutButton = () => {
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    const { error, data } = await authClient.signOut(
+      {},
+      {
+        onRequest: () => {
+          setIsSigningOut(true);
+        },
+        onSuccess: () => {
+          setIsSigningOut(false);
+          console.log("Sign out successful");
+        },
+        onError: (ctx) => {
+          console.error(ctx.error);
+          Alert.alert("Error", ctx.error.message || "Failed to sign out");
+          setIsSigningOut(false);
+        },
+      }
+    );
+
+    console.log(data, error);
+  };
+
+  return (
+    <Button
+      //  color="primary"
+      variant="tertiary"
+      isDisabled={isSigningOut}
+      onPress={() => {
+        Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Sign Out",
+            onPress: async () => {
+              await handleSignOut();
+            },
+          },
+        ]);
+      }}
+    >
+      {/* <Text className="text-foreground"> */}
+      Sign Out
+      {/* </Text> */}
+    </Button>
+  );
+};

@@ -42,12 +42,13 @@ export async function handleSubscriptionCreated(ctx: any, event: any) {
 
   try {
     // Check if subscription already exists (idempotency - handle duplicate webhooks)
-    const existingSubscription = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_platform_subscription_id", (q: any) =>
-        q.eq("platformSubscriptionId", event.data.id)
-      )
-      .unique();
+    const existingSubscription = await ctx.runQuery(
+      internal.features.subscriptions.queries
+        .getSubscriptionByPlatformSubscriptionId,
+      {
+        platformSubscriptionId: event.data.id,
+      }
+    );
 
     if (existingSubscription) {
       console.log(
@@ -131,15 +132,13 @@ export async function handleSubscriptionUpdated(ctx: any, event: any) {
 
   try {
     // First, try to get existing subscription to preserve required fields
-    const existingSubscription = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_platform_subscription_id", (q: any) =>
-        q.eq(
-          "platformSubscriptionId",
-          event.data.id || event.platformSubscriptionId
-        )
-      )
-      .unique();
+    const existingSubscription = await ctx.runQuery(
+      internal.features.subscriptions.queries
+        .getSubscriptionByPlatformSubscriptionId,
+      {
+        platformSubscriptionId: event.data.id || event.platformSubscriptionId,
+      }
+    );
 
     const isCanceled = isSubscriptionCanceled(event.data);
     const status = isCanceled ? "canceled" : event.data.status || "active";
@@ -250,12 +249,12 @@ export async function handleOrderPaid(ctx: any, event: any) {
 
     // Check if we've already processed this order (idempotency)
     const orderId = event.data.id;
-    const existingOrder = await ctx.db
-      .query("orders")
-      .withIndex("by_platform_order_id", (q: any) =>
-        q.eq("platformOrderId", orderId)
-      )
-      .unique();
+    const existingOrder = await ctx.runQuery(
+      internal.features.subscriptions.queries.getOrderByPlatformOrderId,
+      {
+        platformOrderId: orderId,
+      }
+    );
 
     if (existingOrder) {
       console.log("[WEBHOOK] Order already processed:", existingOrder._id);
@@ -263,15 +262,17 @@ export async function handleOrderPaid(ctx: any, event: any) {
     }
 
     // Record the order for idempotency
-    await ctx.db.insert("orders", {
-      userId: event.userId,
-      platform: "polar" as const,
-      platformOrderId: orderId,
-      platformProductId: productId,
-      amount: creditAmount,
-      status: "paid" as const,
-      createdAt: Date.now(),
-    });
+    await ctx.runMutation(
+      internal.features.subscriptions.mutations.insertOrder,
+      {
+        userId: event.userId,
+        platform: "polar" as const,
+        platformOrderId: orderId,
+        platformProductId: productId,
+        amount: creditAmount,
+        status: "paid" as const,
+      }
+    );
 
     // Add credits to user profile
     await ctx.runMutation(

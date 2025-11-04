@@ -11,10 +11,11 @@ import { isAdmin } from "./guards";
 /**
  * Admin action to grant premium access to a user
  * Only callable by authenticated admins
+ * userId is the Better Auth user's _id (as string)
  */
 export const grantPremiumManually = action({
   args: {
-    userId: v.id("user"),
+    userId: v.string(),
     grantType: v.union(v.literal("manual"), v.literal("lifetime")),
     durationDays: v.optional(v.number()),
   },
@@ -36,10 +37,11 @@ export const grantPremiumManually = action({
 /**
  * Admin action to revoke premium access from a user
  * Only callable by authenticated admins
+ * userId is the Better Auth user's _id (as string)
  */
 export const revokePremiumManually = action({
   args: {
-    userId: v.id("user"),
+    userId: v.string(),
   },
   handler: async (ctx, args): Promise<void> => {
     // Check admin authorization

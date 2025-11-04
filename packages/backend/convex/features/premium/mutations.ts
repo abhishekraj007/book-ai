@@ -10,17 +10,18 @@ import { internalMutation } from "../../_generated/server";
 /**
  * Internal mutation to grant premium access
  * Called by admin actions in admin.ts
+ * userId is the Better Auth user's _id (stored as string)
  */
 export const _grantPremium = internalMutation({
   args: {
-    userId: v.id("user"),
+    userId: v.string(),
     grantType: v.union(v.literal("manual"), v.literal("lifetime")),
     durationDays: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db
       .query("profile")
-      .withIndex("by_auth_user_id", (q: any) => q.eq("authUserId", args.userId))
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.userId))
       .unique();
 
     if (!profile) {
@@ -52,15 +53,16 @@ export const _grantPremium = internalMutation({
 /**
  * Internal mutation to revoke premium access
  * Called by admin-protected actions only
+ * userId is the Better Auth user's _id (stored as string)
  */
 export const _revokePremium = internalMutation({
   args: {
-    userId: v.id("user"),
+    userId: v.string(),
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db
       .query("profile")
-      .withIndex("by_auth_user_id", (q: any) => q.eq("authUserId", args.userId))
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.userId))
       .unique();
 
     if (!profile) {
@@ -84,7 +86,8 @@ export const _revokePremium = internalMutation({
 
     return {
       success: false,
-      message: "Cannot revoke subscription-based premium. User must cancel subscription.",
+      message:
+        "Cannot revoke subscription-based premium. User must cancel subscription.",
     };
   },
 });
@@ -92,28 +95,31 @@ export const _revokePremium = internalMutation({
 /**
  * Internal mutation to sync premium status when subscription changes
  * Called by webhook handlers
+ * userId is the Better Auth user's _id (stored as string)
  */
 export const syncPremiumFromSubscription = internalMutation({
   args: {
-    userId: v.id("user"),
+    userId: v.string(),
     hasActiveSubscription: v.boolean(),
   },
   handler: async (ctx, args) => {
     const profile = await ctx.db
       .query("profile")
-      .withIndex("by_auth_user_id", (q: any) => q.eq("authUserId", args.userId))
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", args.userId))
       .unique();
 
     if (!profile) {
       throw new Error("Profile not found");
     }
 
+    const hasActiveSubscription = args.hasActiveSubscription;
+
     // Only update if premium is subscription-based (don't override manual/lifetime)
     if (
       profile.premiumGrantedBy === "subscription" ||
       !profile.premiumGrantedBy
     ) {
-      if (args.hasActiveSubscription) {
+      if (hasActiveSubscription) {
         // Grant premium from subscription
         await ctx.db.patch(profile._id, {
           isPremium: true,
