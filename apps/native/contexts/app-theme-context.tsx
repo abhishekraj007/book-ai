@@ -1,5 +1,13 @@
-import React, { createContext, useCallback, useContext, useMemo } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useEffect,
+  useState,
+} from "react";
 import { Uniwind, useUniwind } from "uniwind";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type ThemeName =
   | "light"
@@ -11,12 +19,15 @@ type ThemeName =
   | "sky-light"
   | "sky-dark";
 
+const THEME_STORAGE_KEY = "@app_theme";
+
 interface AppThemeContextType {
   currentTheme: string;
   isLight: boolean;
   isDark: boolean;
-  setTheme: (theme: ThemeName) => void;
-  toggleTheme: () => void;
+  setTheme: (theme: ThemeName) => Promise<void>;
+  toggleTheme: () => Promise<void>;
+  isThemeLoaded: boolean;
 }
 
 const AppThemeContext = createContext<AppThemeContextType | undefined>(
@@ -27,6 +38,32 @@ export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { theme } = useUniwind();
+  const [isThemeLoaded, setIsThemeLoaded] = useState(false);
+
+  // Load saved theme on app startup
+  useEffect(() => {
+    const loadSavedTheme = async () => {
+      try {
+        const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (savedTheme) {
+          // User has a saved theme preference
+          Uniwind.setTheme(savedTheme as ThemeName);
+        } else {
+          // No saved theme, set default to dark
+          Uniwind.setTheme("dark");
+          await AsyncStorage.setItem(THEME_STORAGE_KEY, "dark");
+        }
+      } catch (error) {
+        console.log("Error loading theme:", error);
+        // Fallback to dark theme
+        Uniwind.setTheme("dark");
+      } finally {
+        setIsThemeLoaded(true);
+      }
+    };
+
+    loadSavedTheme();
+  }, []);
 
   const isLight = useMemo(() => {
     return theme === "light" || theme.endsWith("-light");
@@ -36,38 +73,47 @@ export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     return theme === "dark" || theme.endsWith("-dark");
   }, [theme]);
 
-  const setTheme = useCallback((newTheme: ThemeName) => {
-    Uniwind.setTheme(newTheme);
+  const setTheme = useCallback(async (newTheme: ThemeName) => {
+    try {
+      Uniwind.setTheme(newTheme);
+      await AsyncStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    } catch (error) {
+      console.log("Error saving theme:", error);
+    }
   }, []);
 
-  const toggleTheme = useCallback(() => {
+  const toggleTheme = useCallback(async () => {
+    let newTheme: ThemeName;
     switch (theme) {
       case "light":
-        Uniwind.setTheme("dark");
+        newTheme = "dark";
         break;
       case "dark":
-        Uniwind.setTheme("light");
+        newTheme = "light";
         break;
       case "lavender-light":
-        Uniwind.setTheme("lavender-dark");
+        newTheme = "lavender-dark";
         break;
       case "lavender-dark":
-        Uniwind.setTheme("lavender-light");
+        newTheme = "lavender-light";
         break;
       case "mint-light":
-        Uniwind.setTheme("mint-dark");
+        newTheme = "mint-dark";
         break;
       case "mint-dark":
-        Uniwind.setTheme("mint-light");
+        newTheme = "mint-light";
         break;
       case "sky-light":
-        Uniwind.setTheme("sky-dark");
+        newTheme = "sky-dark";
         break;
       case "sky-dark":
-        Uniwind.setTheme("sky-light");
+        newTheme = "sky-light";
         break;
+      default:
+        newTheme = "dark";
     }
-  }, [theme]);
+    await setTheme(newTheme);
+  }, [theme, setTheme]);
 
   const value = useMemo(
     () => ({
@@ -76,8 +122,9 @@ export const AppThemeProvider: React.FC<{ children: React.ReactNode }> = ({
       isDark,
       setTheme,
       toggleTheme,
+      isThemeLoaded,
     }),
-    [theme, isLight, isDark, setTheme, toggleTheme]
+    [theme, isLight, isDark, setTheme, toggleTheme, isThemeLoaded]
   );
 
   return (

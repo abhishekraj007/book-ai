@@ -96,9 +96,9 @@ export default function SettingsRoute() {
     return "default";
   };
 
-  const handleThemeSelect = (theme: ThemeOption) => {
+  const handleThemeSelect = async (theme: ThemeOption) => {
     const variant = isLight ? theme.lightVariant : theme.darkVariant;
-    setTheme(variant as any);
+    await setTheme(variant as any);
   };
 
   const { isAuthenticated } = useConvexAuth();

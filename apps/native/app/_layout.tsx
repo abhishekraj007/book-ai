@@ -2,7 +2,7 @@ import { Slot } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "../global.css";
 import { HeroUINativeProvider } from "heroui-native";
-import { AppThemeProvider } from "@/contexts/app-theme-context";
+import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
 import { PurchasesProvider } from "@/contexts/purchases-context";
 import ConvexProvider from "@/providers/ConvexProvider";
 import SplashScreenProvider from "@/providers/SplashScreenProvider";
@@ -26,6 +26,12 @@ const heroUIConfig = {
 
 /* ------------------------------ themed route ------------------------------ */
 function ThemedLayout() {
+  const { isThemeLoaded } = useAppTheme();
+
+  if (!isThemeLoaded) {
+    return null; // Let SplashScreenProvider handle the splash screen
+  }
+
   return (
     <HeroUINativeProvider config={heroUIConfig}>
       <Slot />

@@ -31,7 +31,7 @@ export default function MainLayout() {
       <Stack.Screen
         name="settings"
         options={{
-          title: "",
+          title: "Settings",
           presentation: "modal",
           headerBackButtonDisplayMode: "generic",
           headerBlurEffect: isDark ? "dark" : "light",
