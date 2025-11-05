@@ -1,5 +1,12 @@
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  useFonts,
+} from "@expo-google-fonts/inter";
+
 import { useConvexAuth } from "convex/react";
-import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import type React from "react";
 import { useEffect } from "react";
@@ -33,7 +40,12 @@ export default function SplashScreenProvider({
   children: React.ReactNode;
 }) {
   const { isLoading: isAuthLoading } = useConvexAuth();
-  const [fontsLoaded, fontError] = useFonts({});
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
 
   if (fontError) {
     throw fontError;

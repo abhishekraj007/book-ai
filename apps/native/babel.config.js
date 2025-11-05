@@ -3,22 +3,10 @@ module.exports = function (api) {
 
   return {
     presets: [
-      ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
-      'nativewind/babel',
+      ['babel-preset-expo'],
     ],
 
     plugins: [
-      [
-        'module-resolver',
-        {
-          root: ['./'],
-
-          alias: {
-            '@': './',
-            'tailwind.config': './tailwind.config.js',
-          },
-        },
-      ],
       'react-native-worklets/plugin',
     ],
   };

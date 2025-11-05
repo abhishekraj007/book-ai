@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Button, useTheme } from "heroui-native";
+import { Button } from "heroui-native";
 import { Text, View, ActivityIndicator, ImageBackground } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useConvexAuth } from "convex/react";
@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useAppleAuth, useGoogleAuth } from "@/lib/betterAuth/oauth";
 
 export default function Landing() {
-  const { colors } = useTheme();
+  // const { colors } = useTheme();
   const router = useRouter();
   const { isAuthenticated } = useConvexAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -55,54 +55,51 @@ export default function Landing() {
           }}
         />
 
-        <SafeAreaView className="flex-1 gap-4 px-8">
+        <View className="flex-1 justify-end gap-3 p-6">
           <View className="flex-1 justify-end">
-            <Text className="font-extrabold text-6xl text-foreground">
+            <Text className="font-extrabold text-6xl text-white/90">
               StatusAI
             </Text>
-            <Text className="text-muted-foreground text-lg">
+            <Text className="text-white/80 text-lg">
               Sign in to get started
             </Text>
           </View>
-          <View className="w-full flex-row gap-4">
+          <View className="w-full flex-row gap-4 ">
             {/* google */}
             <Button
-              className="flex-1 overflow-hidden rounded-full"
+              className="flex-1 overflow-hidden rounded-full bg-white/20"
               variant="tertiary"
               onPress={handleGoogleSignIn}
               isDisabled={isLoading}
             >
-              <Ionicons
-                name="logo-google"
-                size={20}
-                color={colors.defaultForeground}
-              />
-              <Text className="text-foreground">Google</Text>
+              <Ionicons name="logo-google" size={20} color="white" />
+              <Text className="text-white">Google</Text>
             </Button>
             {/* apple */}
             <Button
-              className="flex-1 overflow-hidden rounded-full"
-              variant="tertiary"
+              className="flex-1 overflow-hidden rounded-full bg-white/20"
+              variant="secondary"
               onPress={handleAppleSignIn}
               isDisabled={isLoading}
             >
               <Ionicons
                 name="logo-apple"
                 size={20}
-                color={colors.defaultForeground}
+                color={"white"}
+                // color={colors.defaultForeground}
               />
               <Text className="text-foreground">Apple</Text>
             </Button>
           </View>
           <View className="justify-center gap-1 flex-row flex-wrap items-center ">
-            <Text className="text-muted-foreground text-sm">
+            <Text className="text-white/50 text-sm">
               By signing in, you agree to our
             </Text>
-            <Text className="text-foreground text-xs">terms of service</Text>
-            <Text className="text-muted-foreground text-sm">and</Text>
-            <Text className="text-foreground text-xs">privacy policy</Text>
+            <Text className="text-white/80 text-xs">terms of service</Text>
+            <Text className="text-muted text-sm">and</Text>
+            <Text className="text-white/80 text-xs">privacy policy</Text>
           </View>
-        </SafeAreaView>
+        </View>
       </ImageBackground>
 
       {/* Loading overlay */}

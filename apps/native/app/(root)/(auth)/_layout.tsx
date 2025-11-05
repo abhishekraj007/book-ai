@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter, useNavigationContainerRef } from "expo-router";
-import { Button, useTheme } from "heroui-native";
+import { Button } from "heroui-native";
 import { Pressable } from "react-native";
 import { useNavigationOptions } from "@/hooks/useNavigationOptions";
+import { X } from "lucide-react-native";
 
 export default function AuthLayout() {
   const { standard } = useNavigationOptions();
   const router = useRouter();
-  const { colors } = useTheme();
+  // const { colors } = useTheme();
 
   const handleClose = () => {
     if (router.canGoBack()) {
@@ -24,7 +25,7 @@ export default function AuthLayout() {
         options={{
           headerShown: true,
           title: "",
-          // presentation: "modal",
+          presentation: "modal",
           ...standard,
           headerRight: () => (
             <Button
@@ -32,9 +33,12 @@ export default function AuthLayout() {
               size="sm"
               isIconOnly
               onPress={handleClose}
-              style={{ borderRadius: "100%" }}
+              style={{
+                // borderRadius: "100%",
+                backgroundColor: "rgba(255,255,255,0.1)",
+              }}
             >
-              <Ionicons name="close" size={16} color={colors.foreground} />
+              <X size={16} color={"white"} />
             </Button>
           ),
         }}

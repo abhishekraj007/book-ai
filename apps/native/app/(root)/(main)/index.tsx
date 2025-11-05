@@ -1,12 +1,15 @@
-import { Button, Chip, useTheme } from "heroui-native";
+import { Header } from "@/components";
+import { Button, Chip } from "heroui-native";
 import { FlatList, Text, View } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeRoute() {
-  const { colors } = useTheme();
-
   return (
     <View className="flex-1">
-      <Text>Home</Text>
+      <SafeAreaView>
+        <Header />
+        <Text>Home</Text>
+      </SafeAreaView>
     </View>
   );
 }

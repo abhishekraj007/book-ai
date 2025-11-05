@@ -2,10 +2,17 @@ import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
-import { useTheme } from "heroui-native";
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from "react";
 import { StyleSheet } from "react-native";
 import type { BottomSheetBackdropProps } from "@gorhom/bottom-sheet";
+import { useTheme } from "@react-navigation/native";
+import { useThemeColor } from "heroui-native";
 
 interface CustomBottomSheetProps {
   isOpen: boolean;
@@ -18,7 +25,10 @@ export const CustomBottomSheet = forwardRef<
   BottomSheet,
   CustomBottomSheetProps
 >(({ isOpen, onClose, children, snapPoints = ["65%"] }, ref) => {
-  const { colors } = useTheme();
+  // const { colors } = useTheme();
+  const background = useThemeColor("background");
+  const border = useThemeColor("border");
+
   const bottomSheetRef = useRef<BottomSheet>(null);
 
   // Expose the ref methods to parent
@@ -63,10 +73,10 @@ export const CustomBottomSheet = forwardRef<
       backdropComponent={renderBackdrop}
       onChange={handleSheetChanges}
       backgroundStyle={{
-        backgroundColor: colors.background,
+        backgroundColor: background,
       }}
       handleIndicatorStyle={{
-        backgroundColor: colors.border,
+        backgroundColor: border,
         width: 40,
         height: 4,
       }}

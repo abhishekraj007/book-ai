@@ -1,4 +1,4 @@
-import { Button, Spinner, useTheme } from "heroui-native";
+import { Button, Spinner, useThemeColor } from "heroui-native";
 import { useState } from "react";
 import { ScrollView, Text, View, Pressable } from "react-native";
 import { Coins, Check } from "lucide-react-native";
@@ -60,7 +60,12 @@ const CREDIT_OPTIONS = [
  */
 
 export default function BuyCreditsScreen() {
-  const { colors } = useTheme();
+  //   const { colors } = useTheme();
+  const accentColor = useThemeColor("accent");
+  const surfaceColor = useThemeColor("surface");
+  const foregroundColor = useThemeColor("foreground");
+  const mutedColor = useThemeColor("muted");
+
   const router = useRouter();
   const { creditPackages, purchasePackage, isLoading } = usePurchases();
   const [selectedProduct, setSelectedProduct] =
@@ -100,9 +105,9 @@ export default function BuyCreditsScreen() {
           <View className="items-center gap-3">
             <View
               className="w-20 h-20 rounded-full items-center justify-center"
-              style={{ backgroundColor: colors.accentSoft }}
+              style={{ backgroundColor: accentColor }}
             >
-              <Coins size={40} color={colors.accent} />
+              <Coins size={40} color={accentColor} />
             </View>
             <Text className="text-3xl font-bold text-foreground">
               Buy Credits
@@ -132,15 +137,15 @@ export default function BuyCreditsScreen() {
                       className="p-5 rounded-2xl border-2 relative"
                       style={{
                         backgroundColor: isSelected
-                          ? colors.accentSoft
-                          : colors.surface,
-                        borderColor: isSelected ? colors.accent : colors.border,
+                          ? accentColor
+                          : surfaceColor,
+                        // borderColor: isSelected ? accentColor : colors.border,
                       }}
                     >
                       {/* {option.popular && (
                         <View
                           className="absolute -top-3 right-4 px-3 py-1 rounded-full"
-                          style={{ backgroundColor: colors.accent }}
+                          style={{ backgroundColor: accentColor }}
                         >
                           <Text className="text-xs font-bold text-accent-foreground">
                             POPULAR
@@ -154,8 +159,8 @@ export default function BuyCreditsScreen() {
                             className="text-2xl font-bold"
                             style={{
                               color: isSelected
-                                ? colors.foreground
-                                : colors.foreground,
+                                ? foregroundColor
+                                : foregroundColor,
                             }}
                           >
                             {option.title}
@@ -164,9 +169,7 @@ export default function BuyCreditsScreen() {
                             <Text
                               className="text-base font-semibold"
                               style={{
-                                color: isSelected
-                                  ? colors.accent
-                                  : colors.mutedForeground,
+                                color: isSelected ? accentColor : mutedColor,
                               }}
                             >
                               {option.priceString}
@@ -177,18 +180,18 @@ export default function BuyCreditsScreen() {
                         <View
                           className="w-8 h-8 rounded-full border-2 items-center justify-center"
                           style={{
-                            borderColor: isSelected
-                              ? colors.accent
-                              : colors.border,
+                            // borderColor: isSelected
+                            //   ? accentColor
+                            //   : colors.border,
                             backgroundColor: isSelected
-                              ? colors.accent
+                              ? accentColor
                               : "transparent",
                           }}
                         >
                           {isSelected && (
                             <Check
                               size={18}
-                              color={colors.accentForeground}
+                              color={accentColor}
                               strokeWidth={3}
                             />
                           )}
@@ -211,7 +214,7 @@ export default function BuyCreditsScreen() {
             >
               {isPurchasing ? (
                 <View className="flex-row items-center gap-2">
-                  <Spinner size="sm" color={colors.accentForeground} />
+                  <Spinner size="sm" color={accentColor} />
                   <Text className="text-accent-foreground font-semibold text-base">
                     Processing...
                   </Text>

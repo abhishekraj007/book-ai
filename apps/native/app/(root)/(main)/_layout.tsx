@@ -1,9 +1,7 @@
 import { Stack } from "expo-router";
-import { Alert, Pressable, Text } from "react-native";
-import { useState } from "react";
 import { useNavigationOptions } from "@/hooks/useNavigationOptions";
-import { authClient } from "@/lib/betterAuth/client";
 import { Header } from "@/components";
+import { useThemeColor } from "heroui-native";
 
 export default function MainLayout() {
   const { standard } = useNavigationOptions();
@@ -13,12 +11,11 @@ export default function MainLayout() {
       <Stack.Screen
         name="index"
         options={{
-          title: "Home",
-          headerTitle: "Home",
-          headerLargeTitle: true,
-          headerBackTitle: "Home",
           ...standard,
-          headerRight: () => <Header />,
+          title: "Home",
+          headerTitle: "",
+          headerShown: false,
+          // headerRight: () => <Header />,
         }}
       />
       <Stack.Screen
@@ -28,6 +25,7 @@ export default function MainLayout() {
           presentation: "modal",
           headerTitle: "",
           headerBackTitle: "Back",
+          headerShown: false,
           ...standard,
         }}
       />
@@ -37,7 +35,7 @@ export default function MainLayout() {
           title: "Settings",
           presentation: "modal",
           headerBackButtonDisplayMode: "generic",
-          headerLargeTitle: true,
+          headerShown: false,
           ...standard,
         }}
       />
