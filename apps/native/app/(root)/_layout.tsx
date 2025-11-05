@@ -5,16 +5,21 @@ import { Stack } from "expo-router";
 import { useThemeColor } from "heroui-native";
 import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { SplashScreen } from "@/components/splash-screen";
 
 export const unstable_settings = {
   initialRouteName: "(main)",
 };
 
 export default function RootLayout() {
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const { isDark } = useAppTheme();
   const themeColorForeground = useThemeColor("foreground");
   const themeColorBackground = useThemeColor("background");
+
+  if (isLoading) {
+    return <SplashScreen />;
+  }
 
   return (
     <>
