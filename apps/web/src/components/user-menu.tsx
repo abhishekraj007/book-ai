@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@convex-starter/backend/convex/_generated/api";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Crown, Settings } from "lucide-react";
+import { Crown, LogOut, Settings } from "lucide-react";
 
 interface UserMenuProps {
   isPremium: boolean;
@@ -70,22 +70,20 @@ export default function UserMenu({ isPremium }: UserMenuProps) {
           <span>Settings</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Button
-            variant="destructive"
-            className="w-full"
-            onClick={() => {
-              authClient.signOut({
-                fetchOptions: {
-                  onSuccess: () => {
-                    router.push("/dashboard");
-                  },
+        <DropdownMenuItem
+          onClick={() => {
+            authClient.signOut({
+              fetchOptions: {
+                onSuccess: () => {
+                  router.push("/dashboard");
                 },
-              });
-            }}
-          >
-            Sign Out
-          </Button>
+              },
+            });
+          }}
+          className="cursor-pointer"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
