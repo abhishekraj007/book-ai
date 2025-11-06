@@ -165,12 +165,6 @@ async function processPolarSubscriptionEvent(payload: any, eventType: string) {
     }
   );
 
-  console.log(`[POLAR WEBHOOK] Premium status synced:`, {
-    userId,
-    hasActiveSubscription,
-  });
-
-  // Handle credit grants for new subscriptions and renewals
   if (eventType === "subscription.created" && result.isNew) {
     // New subscription - grant bonus credits
     const creditsPerCycle = recurringInterval === "year" ? 5000 : 1000;
@@ -180,9 +174,6 @@ async function processPolarSubscriptionEvent(payload: any, eventType: string) {
         userId,
         bonusCredits: creditsPerCycle,
       }
-    );
-    console.log(
-      `[POLAR WEBHOOK] Added ${creditsPerCycle} bonus credits for new subscription`
     );
   } else if (
     eventType === "subscription.active" &&

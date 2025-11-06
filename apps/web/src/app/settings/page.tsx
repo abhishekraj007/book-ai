@@ -45,6 +45,11 @@ export default function SettingsPage() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const customerId = subscriptions?.subscriptions?.[0]?.platformCustomerId;
 
+  // Check if user has a canceled subscription
+  const hasCanceledSubscription = subscriptions?.subscriptions?.some(
+    (sub) => sub.status === "canceled" && sub.canceledAt
+  );
+
   const goToPortal = async () => {
     // find the customer id associated with this user
     if (!customerId) {
@@ -192,6 +197,32 @@ export default function SettingsPage() {
                           : "Mobile"}
                       </p>
                     )}
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full justify-between"
+                  onClick={goToPortal}
+                >
+                  <span className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Manage Subscription
+                  </span>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </>
+            ) : hasCanceledSubscription ? (
+              <>
+                <div className="flex items-start justify-between p-4 rounded-lg bg-muted border border-border">
+                  <div className="flex-1">
+                    <p className="font-medium text-sm mb-1">
+                      Subscription Canceled
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Your subscription has been canceled but you still have
+                      access until the end of your billing period
+                    </p>
                   </div>
                 </div>
 

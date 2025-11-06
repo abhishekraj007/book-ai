@@ -112,6 +112,13 @@ export default function PricingPage() {
     (sub) => sub.status === "active"
   )?.productType;
 
+  // Check if user has a canceled subscription (canceled but still active until period end)
+  const hasCanceledSubscription = userSubscriptions?.subscriptions?.some(
+    (sub) => sub.status === "canceled" && sub.canceledAt
+  );
+
+  console.log({ userSubscriptions, hasCanceledSubscription });
+
   // Get free tier from constants
   const freeTier = POLAR_PRICES.find((p) => p.id === "free")!;
 
@@ -231,6 +238,10 @@ export default function PricingPage() {
               <Button onClick={goToPortal} className="w-full">
                 Manage Subscription
               </Button>
+            ) : hasCanceledSubscription ? (
+              <Button onClick={goToPortal} className="w-full" variant="outline">
+                Manage Subscription
+              </Button>
             ) : hasActiveSubscription ? (
               <Button className="w-full" variant="outline" disabled>
                 Already Subscribed
@@ -291,6 +302,10 @@ export default function PricingPage() {
               </Button>
             ) : currentProductKey === "yearly" ? (
               <Button onClick={goToPortal} className="w-full">
+                Manage Subscription
+              </Button>
+            ) : hasCanceledSubscription ? (
+              <Button onClick={goToPortal} className="w-full" variant="outline">
                 Manage Subscription
               </Button>
             ) : hasActiveSubscription ? (

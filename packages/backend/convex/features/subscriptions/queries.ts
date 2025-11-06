@@ -17,7 +17,6 @@ export const getUserSubscriptions = query({
       .withIndex("by_user", (q: any) =>
         q.eq("userId", userData.userMetadata._id)
       )
-      .filter((q: any) => q.eq(q.field("status"), "active"))
       .collect();
 
     return {
