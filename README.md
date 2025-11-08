@@ -38,7 +38,7 @@ Then, run the development server:
 pnpm dev
 ```
 
-Open [http://localhost:3004](http://localhost:3004) in your browser to see the web application.
+Open [http://localhost:3006](http://localhost:3006) in your browser to see the web application.
 Use the Expo Go app to run the mobile application.
 Your app will connect to the Convex cloud backend automatically.
 

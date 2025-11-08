@@ -6,7 +6,7 @@ import { betterAuth } from "better-auth";
 import { authComponent } from "./component";
 
 const siteUrl = process.env.SITE_URL!;
-const nativeAppUrl = process.env.NATIVE_APP_URL || "quotes://";
+const nativeAppUrl = process.env.NATIVE_APP_URL || "bookai://";
 
 export function createAuth(
   ctx: GenericCtx<DataModel>,
@@ -16,9 +16,9 @@ export function createAuth(
     logger: {
       disabled: optionsOnly,
     },
-    baseURL: "http://localhost:3004", // enable this for web login
+    baseURL: "http://localhost:3006", // enable this for web login
     // baseURL: siteUrl, // enable this for mobile login
-    trustedOrigins: [siteUrl, nativeAppUrl, "http://localhost:3004"],
+    trustedOrigins: [siteUrl, nativeAppUrl, "http://localhost:3006"],
     database: authComponent.adapter(ctx),
     user: {
       deleteUser: {
