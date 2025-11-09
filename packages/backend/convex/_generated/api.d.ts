@@ -9,6 +9,12 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as features_books_agent from "../features/books/agent.js";
+import type * as features_books_export from "../features/books/export.js";
+import type * as features_books_http from "../features/books/http.js";
+import type * as features_books_index from "../features/books/index.js";
+import type * as features_books_mutations from "../features/books/mutations.js";
+import type * as features_books_queries from "../features/books/queries.js";
 import type * as features_credits_index from "../features/credits/index.js";
 import type * as features_credits_mutations from "../features/credits/mutations.js";
 import type * as features_credits_queries from "../features/credits/queries.js";
@@ -23,6 +29,7 @@ import type * as features_subscriptions_mutations from "../features/subscription
 import type * as features_subscriptions_queries from "../features/subscriptions/queries.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
+import type * as lib_aiConfig from "../lib/aiConfig.js";
 import type * as lib_betterAuth_component from "../lib/betterAuth/component.js";
 import type * as lib_betterAuth_createAuth from "../lib/betterAuth/createAuth.js";
 import type * as lib_betterAuth_index from "../lib/betterAuth/index.js";
@@ -51,6 +58,12 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  "features/books/agent": typeof features_books_agent;
+  "features/books/export": typeof features_books_export;
+  "features/books/http": typeof features_books_http;
+  "features/books/index": typeof features_books_index;
+  "features/books/mutations": typeof features_books_mutations;
+  "features/books/queries": typeof features_books_queries;
   "features/credits/index": typeof features_credits_index;
   "features/credits/mutations": typeof features_credits_mutations;
   "features/credits/queries": typeof features_credits_queries;
@@ -65,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   "features/subscriptions/queries": typeof features_subscriptions_queries;
   healthCheck: typeof healthCheck;
   http: typeof http;
+  "lib/aiConfig": typeof lib_aiConfig;
   "lib/betterAuth/component": typeof lib_betterAuth_component;
   "lib/betterAuth/createAuth": typeof lib_betterAuth_createAuth;
   "lib/betterAuth/index": typeof lib_betterAuth_index;

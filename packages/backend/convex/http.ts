@@ -23,4 +23,15 @@ http.route({
   handler: handleRevenueCatWebhook,
 });
 
+// Register Book Generation streaming endpoint
+http.route({
+  path: "/book/generate",
+  method: "POST",
+  handler: async (req) => {
+    // This will be implemented as an httpAction
+    const { handleBookGeneration } = await import("./features/books/http");
+    return handleBookGeneration(req);
+  },
+});
+
 export default http;
