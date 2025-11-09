@@ -1,180 +1,133 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useAction } from "convex/react";
+import { useUIMessages } from "@convex-dev/agent/react";
+import { api } from "@book-ai/backend/convex/_generated/api";
+import { useCallback, useEffect, useState } from "react";
+import type { Id } from "@book-ai/backend/convex/_generated/dataModel";
 
 /**
  * useBookGeneration Hook
  *
- * Chat-based book generation hook for streaming responses from Convex.
- * Provides a conversational interface where the AI proposes content
- * and waits for user approval at each step.
+ * Uses Convex Agent Component with real-time streaming for v0.app-style UX:
+ * - Word-by-word streaming as text is generated
+ * - Websocket-based updates (no HTTP polling)
+ * - Automatic message persistence in threads
+ * - Built-in conversation history
+ * - Live text smoothing for better perceived performance
  *
  * @param bookId - The ID of the book being generated
+ * @param bookTitle - The title/description of the book to generate
  */
-export function useBookGeneration(bookId: string) {
+export function useBookGeneration(bookId: string, bookTitle?: string) {
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
 
-  // Send a message to the AI
-  const send = useCallback(
-    async (content: string) => {
-      if (!content.trim() || isLoading) return;
+  const startGeneration = useAction(api.features.books.actions.startGeneration);
+  const continueGeneration = useAction(
+    api.features.books.actions.continueGeneration
+  );
 
-      // Add user message
-      const userMessage = {
-        id: Date.now().toString(),
-        role: "user",
-        content,
-        parts: [{ type: "text", text: content }],
-      };
+  // Real-time subscription to thread messages with streaming deltas
+  // This uses the specialized Agent hook for proper streaming support
+  const {
+    results: messages,
+    status,
+    loadMore,
+  } = useUIMessages(
+    api.features.books.queries.getThreadMessages,
+    threadId ? { threadId } : "skip",
+    {
+      initialNumItems: 100,
+      stream: true, // Enable real-time streaming
+    }
+  );
 
-      setMessages((prev) => [...prev, userMessage]);
-      setInput("");
-      setIsLoading(true);
-      setError(null);
+  // Auto-start generation on mount if book title provided
+  useEffect(() => {
+    if (bookTitle && !threadId && !isStarting) {
+      setIsStarting(true);
+      startGeneration({
+        bookId: bookId as Id<"books">,
+        prompt: `Please create an outline for: ${bookTitle}`,
+      })
+        .then(({ threadId: newThreadId }) => {
+          console.log("[HOOK] Thread created:", newThreadId);
+          setThreadId(newThreadId);
+        })
+        .catch((error) => {
+          console.error("[HOOK] Failed to start generation:", error);
+        })
+        .finally(() => {
+          setIsStarting(false);
+        });
+    }
+  }, [bookTitle, threadId, isStarting, bookId, startGeneration]);
+
+  // Send a custom message
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (!threadId) {
+        console.warn("[HOOK] No threadId available, cannot send message");
+        return;
+      }
 
       try {
-        const convexUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
-        if (!convexUrl) {
-          throw new Error("NEXT_PUBLIC_CONVEX_SITE_URL is not configured");
-        }
-
-        const response = await fetch(`${convexUrl}/book/generate`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            bookId,
-            messages: [...messages, userMessage],
-          }),
+        await continueGeneration({
+          bookId: bookId as Id<"books">,
+          threadId,
+          prompt: text,
         });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        // Handle streaming response
-        const reader = response.body?.getReader();
-        if (!reader) {
-          throw new Error("No response body");
-        }
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let assistantMessage = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: "",
-          parts: [],
-        };
-
-        while (true) {
-          const { done, value } = await reader.read();
-
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (!line.trim()) continue;
-
-            // Handle different streaming formats
-            if (line.startsWith("0:")) {
-              // Text content
-              const content = line.slice(3, -1); // Remove prefix and trailing quote
-              assistantMessage.content += content;
-              setMessages((prev) => {
-                const updated = [...prev];
-                const lastMsg = updated[updated.length - 1];
-                if (lastMsg?.role === "assistant") {
-                  lastMsg.content = assistantMessage.content;
-                } else {
-                  updated.push({ ...assistantMessage });
-                }
-                return updated;
-              });
-            }
-          }
-        }
-
-        setIsLoading(false);
-      } catch (err) {
-        console.error("Book generation error:", err);
-        setError(err instanceof Error ? err : new Error("Unknown error"));
-        setIsLoading(false);
+        setInput("");
+      } catch (error) {
+        console.error("[HOOK] Failed to send message:", error);
       }
     },
-    [bookId, messages, isLoading]
+    [threadId, bookId, continueGeneration]
   );
+
+  // Approve proposed content
+  const approve = useCallback(() => {
+    sendMessage("Yes, I approve. Please proceed.");
+  }, [sendMessage]);
+
+  // Reject proposed content
+  const reject = useCallback(() => {
+    sendMessage("No, please revise that.");
+  }, [sendMessage]);
 
   // Handle form submission
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      send(input);
+      if (input.trim()) {
+        sendMessage(input);
+      }
     },
-    [send, input]
+    [input, sendMessage]
   );
 
-  // Approve proposed content
-  const approve = useCallback(() => {
-    send("Yes, I approve. Please proceed.");
-  }, [send]);
-
-  // Reject proposed content
-  const reject = useCallback(
-    (reason?: string) => {
-      const message = reason
-        ? `No, please revise: ${reason}`
-        : "No, please try again with a different approach.";
-      send(message);
-    },
-    [send]
-  );
-
-  // Request modifications
-  const modify = useCallback(
-    (instructions: string) => {
-      send(`Please modify: ${instructions}`);
-    },
-    [send]
-  );
-
-  // Auto-start with welcome message
-  useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: "welcome",
-          role: "assistant",
-          content:
-            "Hi! I'm here to help you create your book. What kind of book would you like to write today?",
-          parts: [],
-        },
-      ]);
-    }
-  }, [messages.length]);
+  // Check if any message is currently streaming
+  const isStreaming =
+    messages?.some((msg: any) => msg.status === "streaming") || false;
 
   return {
     // Chat state
-    messages,
+    messages: messages || [],
     input,
     setInput,
     handleSubmit,
-    isLoading,
-    error,
+    isLoading: isStarting || isStreaming || status === "LoadingFirstPage",
+    error: null,
 
     // Control functions
-    sendMessage: send,
+    sendMessage,
     approve,
     reject,
-    modify,
-    reload: () => setMessages([]),
-    stop: () => setIsLoading(false),
+    loadMore, // For pagination if needed
+
+    // Streaming status
+    isStreaming,
   };
 }

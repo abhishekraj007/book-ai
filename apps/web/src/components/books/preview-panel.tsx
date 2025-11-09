@@ -14,7 +14,7 @@ interface PreviewPanelProps {
 
 export function PreviewPanel({ book, chapters, isLoading }: PreviewPanelProps) {
   return (
-    <div className="flex flex-1 flex-col bg-muted/10">
+    <div className="flex flex-1 flex-col bg-muted/10 h-[calc(100vh-150px)] overflow-auto">
       {chapters.length > 0 && (
         <div className="flex items-center gap-2 border-b px-6 py-2">
           <Tabs defaultValue="0" className="w-full">
@@ -100,4 +100,3 @@ export function PreviewPanel({ book, chapters, isLoading }: PreviewPanelProps) {
     </div>
   );
 }
-

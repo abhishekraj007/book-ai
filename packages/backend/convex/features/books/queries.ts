@@ -1,6 +1,9 @@
-import { v } from 'convex/values';
-import { internalQuery } from '../../_generated/server';
-import { Id } from '../../_generated/dataModel';
+import { v } from "convex/values";
+import { internalQuery, query } from "../../_generated/server";
+import { paginationOptsValidator } from "convex/server";
+import { Id } from "../../_generated/dataModel";
+import { listUIMessages, syncStreams, vStreamArgs } from "@convex-dev/agent";
+import { components } from "../../_generated/api";
 
 // ============================================================================
 // Generation Session Queries
@@ -20,8 +23,8 @@ export const getGenerationSession = internalQuery({
   ),
   handler: async (ctx, { bookId }) => {
     const session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId as Id<'books'>))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"books">))
       .first();
 
     if (!session) {
@@ -66,9 +69,9 @@ export const getBookContext = internalQuery({
   }),
   handler: async (ctx, { bookId, includeChapters, upToChapter }) => {
     // Get book
-    const book = await ctx.db.get(bookId as Id<'books'>);
+    const book = await ctx.db.get(bookId as Id<"books">);
     if (!book) {
-      throw new Error('Book not found');
+      throw new Error("Book not found");
     }
 
     // Get chapters if requested
@@ -82,8 +85,8 @@ export const getBookContext = internalQuery({
 
     if (includeChapters) {
       const allChapters = await ctx.db
-        .query('chapters')
-        .withIndex('by_book', (q) => q.eq('bookId', bookId as Id<'books'>))
+        .query("chapters")
+        .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"books">))
         .collect();
 
       // Filter and format chapters
@@ -139,9 +142,11 @@ export const getVersionHistory = internalQuery({
   ),
   handler: async (ctx, { chapterId }) => {
     const versions = await ctx.db
-      .query('chapterVersions')
-      .withIndex('by_chapter', (q) => q.eq('chapterId', chapterId as Id<'chapters'>))
-      .order('desc') // Most recent first
+      .query("chapterVersions")
+      .withIndex("by_chapter", (q) =>
+        q.eq("chapterId", chapterId as Id<"chapters">)
+      )
+      .order("desc") // Most recent first
       .collect();
 
     return versions.map((v) => ({
@@ -178,16 +183,16 @@ export const getResumeState = internalQuery({
   ),
   handler: async (ctx, { bookId }) => {
     const session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId as Id<'books'>))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"books">))
       .first();
 
-    if (!session || session.status === 'completed') {
+    if (!session || session.status === "completed") {
       return null;
     }
 
     return {
-      canResume: session.status === 'paused' || session.status === 'failed',
+      canResume: session.status === "paused" || session.status === "failed",
       lastCheckpoint: session.lastCheckpoint,
       messages: session.messages,
       retryCount: session.retryCount,
@@ -195,3 +200,47 @@ export const getResumeState = internalQuery({
   },
 });
 
+// ============================================================================
+// Thread Messages Query (for Convex Agent)
+// ============================================================================
+
+/**
+ * Get messages from a Convex Agent thread with real-time streaming support
+ *
+ * Returns both regular messages AND streaming deltas for real-time updates.
+ * This enables v0.app-style streaming where text appears as it's generated.
+ *
+ * @see https://docs.convex.dev/agents/streaming#retrieving-streamed-deltas
+ */
+export const getThreadMessages = query({
+  args: {
+    threadId: v.string(),
+    paginationOpts: paginationOptsValidator,
+    streamArgs: vStreamArgs,
+  },
+  returns: v.object({
+    // Regular messages
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+    // Streaming deltas for real-time updates (optional when no streams are active)
+    streams: v.optional(v.any()),
+  }),
+  handler: async (ctx, args) => {
+    // Fetch regular non-streaming messages
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    // Fetch streaming deltas for real-time updates
+    // This returns messages that are currently being streamed (or undefined if none)
+    const streams = await syncStreams(ctx, components.agent, {
+      ...args,
+      // Include all streaming statuses for smooth UI transitions
+      includeStatuses: ["streaming", "aborted", "finished"],
+    });
+
+    return {
+      ...paginated,
+      streams: streams ?? undefined, // Explicitly handle null/undefined for optional field
+    };
+  },
+});

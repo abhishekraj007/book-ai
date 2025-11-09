@@ -4,6 +4,31 @@ import { internal } from "../../_generated/api";
 import { Id } from "../../_generated/dataModel";
 
 // ============================================================================
+// Book Update Mutation
+// ============================================================================
+
+export const updateBook = internalMutation({
+  args: {
+    bookId: v.id("books"),
+    updates: v.object({
+      threadId: v.optional(v.string()),
+      status: v.optional(v.string()),
+      currentStep: v.optional(v.string()),
+      creditsUsed: v.optional(v.number()),
+      metadata: v.optional(v.any()),
+    }),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { bookId, updates }) => {
+    await ctx.db.patch(bookId, {
+      ...updates,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+// ============================================================================
 // Book Outline Mutations
 // ============================================================================
 

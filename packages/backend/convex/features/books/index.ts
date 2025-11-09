@@ -8,6 +8,9 @@ import { mutation, query } from '../../_generated/server';
  * They handle authentication and call internal functions.
  */
 
+// Export public actions for book generation
+export { startGeneration, continueGeneration } from './actions';
+
 // ============================================================================
 // Queries
 // ============================================================================
@@ -89,7 +92,7 @@ export const getBook = query({
     // Get authenticated user
     const user = await ctx.auth.getUserIdentity();
     if (!user) {
-      throw new Error('Not authenticated');
+      return null; // Return null instead of throwing error
     }
 
     // Get book
@@ -100,7 +103,7 @@ export const getBook = query({
 
     // Verify ownership
     if (book.userId !== user.subject) {
-      throw new Error('Not authorized');
+      return null; // Return null instead of throwing error
     }
 
     // Get chapters

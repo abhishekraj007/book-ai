@@ -92,6 +92,7 @@ export default defineSchema({
     type: v.string(), // "fiction", "non_fiction", "storybook", "coloring_book", etc.
     status: v.string(), // "draft", "generating", "awaiting_approval", "completed", "failed"
     currentStep: v.string(), // Current generation step (e.g., "outline", "chapter_3")
+    threadId: v.optional(v.string()), // Convex Agent thread ID for conversation continuity
     metadata: v.object({
       genre: v.optional(v.string()),
       targetAudience: v.optional(v.string()),
