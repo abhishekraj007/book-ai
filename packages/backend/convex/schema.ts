@@ -62,11 +62,6 @@ export default defineSchema({
       "platformSubscriptionId",
     ]),
 
-  todos: defineTable({
-    text: v.string(),
-    completed: v.boolean(),
-  }),
-
   // Orders table for tracking one-time purchases (credit purchases)
   orders: defineTable({
     userId: v.string(), // Better Auth user ID (stored as string)

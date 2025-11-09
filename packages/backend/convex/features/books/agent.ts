@@ -1,18 +1,18 @@
-import { ToolLoopAgent, tool } from 'ai';
-import { z } from 'zod';
-import { getModelWithFallback } from '../../lib/aiConfig';
-import { internal } from '../../_generated/api';
-import { ActionCtx } from '../../_generated/server';
+import { ToolLoopAgent, tool } from "ai";
+import { z } from "zod";
+import { getModelWithFallback } from "../../lib/aiConfig";
+import { internal } from "../../_generated/api";
+import { ActionCtx } from "../../_generated/server";
 
 /**
  * Book Generation Agent using Kimi K2 Thinking
- * 
+ *
  * This agent can execute 200-300 sequential tool calls, making it perfect
  * for the entire book generation workflow from outline to final chapters.
  */
 export function createBookAgent(ctx: ActionCtx, bookId: string) {
   return new ToolLoopAgent({
-    model: getModelWithFallback('bookGeneration'), // Uses Kimi K2 Thinking
+    model: getModelWithFallback("bookGeneration"), // Uses Kimi K2 Thinking
     instructions: `You are an expert book writing assistant powered by Kimi K2 Thinking.
 
 Your role is to help users create high-quality books through a collaborative, step-by-step process.
@@ -54,16 +54,16 @@ Important guidelines:
             .number()
             .min(1)
             .max(100)
-            .describe('Number of chapters in the book'),
+            .describe("Number of chapters in the book"),
           chapterTitles: z
             .array(z.string())
-            .describe('Array of chapter titles'),
+            .describe("Array of chapter titles"),
           synopsis: z
             .string()
-            .describe('Overall book synopsis and structure plan'),
+            .describe("Overall book synopsis and structure plan"),
           estimatedWordsPerChapter: z
             .number()
-            .describe('Estimated word count per chapter'),
+            .describe("Estimated word count per chapter"),
         }),
         execute: async ({
           chapterCount,
@@ -71,6 +71,12 @@ Important guidelines:
           synopsis,
           estimatedWordsPerChapter,
         }) => {
+          console.log("[TOOL EXECUTE] generateOutline", {
+            chapterCount,
+            chapterTitles,
+            synopsis: synopsis.substring(0, 100),
+          });
+
           // Save outline to database via mutation
           await ctx.runMutation(internal.features.books.mutations.saveOutline, {
             bookId,
@@ -79,6 +85,8 @@ Important guidelines:
             synopsis,
             estimatedWordsPerChapter,
           });
+
+          console.log("[TOOL SUCCESS] generateOutline saved");
 
           return {
             success: true,
@@ -92,15 +100,22 @@ Important guidelines:
           fits the book's narrative and maintains consistency with previous chapters.`,
         needsApproval: true, // User must approve each chapter!
         inputSchema: z.object({
-          chapterNumber: z.number().min(1).describe('Chapter number'),
-          title: z.string().describe('Chapter title'),
+          chapterNumber: z.number().min(1).describe("Chapter number"),
+          title: z.string().describe("Chapter title"),
           content: z
             .string()
             .min(500)
-            .describe('Full chapter content in markdown format'),
-          wordCount: z.number().describe('Actual word count of the chapter'),
+            .describe("Full chapter content in markdown format"),
+          wordCount: z.number().describe("Actual word count of the chapter"),
         }),
         execute: async ({ chapterNumber, title, content, wordCount }) => {
+          console.log("[TOOL EXECUTE] generateChapter", {
+            chapterNumber,
+            title,
+            wordCount,
+            contentLength: content.length,
+          });
+
           // Save chapter to database via mutation
           const result = await ctx.runMutation(
             internal.features.books.mutations.saveChapter,
@@ -112,6 +127,8 @@ Important guidelines:
               wordCount,
             }
           );
+
+          console.log("[TOOL SUCCESS] generateChapter saved", result.chapterId);
 
           return {
             success: true,
@@ -127,15 +144,15 @@ Important guidelines:
           Generate improved content while maintaining narrative consistency.`,
         needsApproval: true, // User must approve revisions!
         inputSchema: z.object({
-          chapterNumber: z.number().describe('Chapter number to revise'),
+          chapterNumber: z.number().describe("Chapter number to revise"),
           revisedContent: z
             .string()
             .min(500)
-            .describe('Revised chapter content in markdown'),
+            .describe("Revised chapter content in markdown"),
           revisionReason: z
             .string()
-            .describe('Reason for revision (user feedback)'),
-          wordCount: z.number().describe('Word count of revised content'),
+            .describe("Reason for revision (user feedback)"),
+          wordCount: z.number().describe("Word count of revised content"),
         }),
         execute: async ({
           chapterNumber,
@@ -144,13 +161,16 @@ Important guidelines:
           wordCount,
         }) => {
           // Update chapter with new version
-          await ctx.runMutation(internal.features.books.mutations.reviseChapter, {
-            bookId,
-            chapterNumber,
-            content: revisedContent,
-            revisionReason,
-            wordCount,
-          });
+          await ctx.runMutation(
+            internal.features.books.mutations.reviseChapter,
+            {
+              bookId,
+              chapterNumber,
+              content: revisedContent,
+              revisionReason,
+              wordCount,
+            }
+          );
 
           return {
             success: true,
@@ -170,17 +190,26 @@ Important guidelines:
         inputSchema: z.object({
           step: z
             .string()
-            .describe('Current step identifier (e.g., "outline_complete", "chapter_3")'),
-          data: z.any().describe('Checkpoint data to save'),
+            .describe(
+              'Current step identifier (e.g., "outline_complete", "chapter_3")'
+            ),
+          data: z.any().describe("Checkpoint data to save"),
         }),
         execute: async ({ step, data }) => {
+          console.log("[TOOL EXECUTE] saveCheckpoint", { step });
+
           // Save checkpoint to generationSessions table
-          await ctx.runMutation(internal.features.books.mutations.saveCheckpoint, {
-            bookId,
-            step,
-            data,
-            timestamp: Date.now(),
-          });
+          await ctx.runMutation(
+            internal.features.books.mutations.saveCheckpoint,
+            {
+              bookId,
+              step,
+              data,
+              timestamp: Date.now(),
+            }
+          );
+
+          console.log("[TOOL SUCCESS] saveCheckpoint saved");
 
           return {
             success: true,
@@ -194,10 +223,12 @@ Important guidelines:
         description: `Deduct credits from user's account for generation operations. 
           Called automatically for each major generation step.`,
         inputSchema: z.object({
-          amount: z.number().min(1).describe('Number of credits to deduct'),
+          amount: z.number().min(1).describe("Number of credits to deduct"),
           reason: z
             .string()
-            .describe('Reason for credit deduction (e.g., "Chapter 3 generation")'),
+            .describe(
+              'Reason for credit deduction (e.g., "Chapter 3 generation")'
+            ),
         }),
         execute: async ({ amount, reason }) => {
           // Deduct credits via mutation
@@ -227,11 +258,11 @@ Important guidelines:
           includeChapters: z
             .boolean()
             .default(true)
-            .describe('Whether to include chapter content in context'),
+            .describe("Whether to include chapter content in context"),
           upToChapter: z
             .number()
             .optional()
-            .describe('Include chapters up to this number (optional)'),
+            .describe("Include chapters up to this number (optional)"),
         }),
         execute: async ({ includeChapters, upToChapter }) => {
           // Get book context via query
@@ -248,22 +279,5 @@ Important guidelines:
         },
       }),
     },
-
-    // Stop conditions for the agent loop
-    // Kimi K2 can handle 200-300 tool calls, so we set a high limit
-    stopWhen: ({ stepCount, finishReason }) => {
-      // Stop if we hit 150 steps (safety limit)
-      if (stepCount >= 150) {
-        return true;
-      }
-
-      // Stop if the model explicitly finishes
-      if (finishReason === 'stop') {
-        return true;
-      }
-
-      return false;
-    },
   });
 }
-

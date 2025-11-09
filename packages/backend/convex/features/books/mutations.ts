@@ -1,6 +1,7 @@
-import { v } from 'convex/values';
-import { internalMutation } from '../../_generated/server';
-import { Id } from '../../_generated/dataModel';
+import { v } from "convex/values";
+import { internalMutation } from "../../_generated/server";
+import { internal } from "../../_generated/api";
+import { Id } from "../../_generated/dataModel";
 
 // ============================================================================
 // Book Outline Mutations
@@ -20,12 +21,10 @@ export const saveOutline = internalMutation({
     { bookId, chapterCount, chapterTitles, synopsis, estimatedWordsPerChapter }
   ) => {
     // Update book with outline metadata
-    await ctx.db.patch(bookId as Id<'books'>, {
-      currentStep: 'outline_complete',
+    await ctx.db.patch(bookId as Id<"books">, {
+      currentStep: "outline_complete",
       metadata: {
-        pageCount: Math.ceil(
-          (chapterCount * estimatedWordsPerChapter) / 250
-        ), // Rough estimate
+        pageCount: Math.ceil((chapterCount * estimatedWordsPerChapter) / 250), // Rough estimate
       },
       updatedAt: Date.now(),
     });
@@ -33,13 +32,13 @@ export const saveOutline = internalMutation({
     // Create placeholder chapters
     const now = Date.now();
     for (let i = 0; i < chapterCount; i++) {
-      await ctx.db.insert('chapters', {
-        bookId: bookId as Id<'books'>,
+      await ctx.db.insert("chapters", {
+        bookId: bookId as Id<"books">,
         chapterNumber: i + 1,
         title: chapterTitles[i] || `Chapter ${i + 1}`,
-        content: '', // Empty initially
+        content: "", // Empty initially
         currentVersion: 0,
-        status: 'pending',
+        status: "pending",
         wordCount: 0,
         createdAt: now,
         updatedAt: now,
@@ -63,12 +62,15 @@ export const saveChapter = internalMutation({
     wordCount: v.number(),
   },
   returns: v.object({ chapterId: v.string() }),
-  handler: async (ctx, { bookId, chapterNumber, title, content, wordCount }) => {
+  handler: async (
+    ctx,
+    { bookId, chapterNumber, title, content, wordCount }
+  ) => {
     // Find the chapter
     const chapter = await ctx.db
-      .query('chapters')
-      .withIndex('by_book_chapter', (q) =>
-        q.eq('bookId', bookId as Id<'books'>).eq('chapterNumber', chapterNumber)
+      .query("chapters")
+      .withIndex("by_book_chapter", (q) =>
+        q.eq("bookId", bookId as Id<"books">).eq("chapterNumber", chapterNumber)
       )
       .first();
 
@@ -79,12 +81,12 @@ export const saveChapter = internalMutation({
     const now = Date.now();
 
     // Create first version
-    await ctx.db.insert('chapterVersions', {
+    await ctx.db.insert("chapterVersions", {
       chapterId: chapter._id,
       versionNumber: 1,
       content,
-      changedBy: 'ai',
-      changeDescription: 'Initial generation',
+      changedBy: "ai",
+      changeDescription: "Initial generation",
       createdAt: now,
     });
 
@@ -93,13 +95,13 @@ export const saveChapter = internalMutation({
       title,
       content,
       currentVersion: 1,
-      status: 'approved',
+      status: "approved",
       wordCount,
       updatedAt: now,
     });
 
     // Update book progress
-    await ctx.db.patch(bookId as Id<'books'>, {
+    await ctx.db.patch(bookId as Id<"books">, {
       currentStep: `chapter_${chapterNumber}`,
       updatedAt: now,
     });
@@ -123,9 +125,9 @@ export const reviseChapter = internalMutation({
   ) => {
     // Find the chapter
     const chapter = await ctx.db
-      .query('chapters')
-      .withIndex('by_book_chapter', (q) =>
-        q.eq('bookId', bookId as Id<'books'>).eq('chapterNumber', chapterNumber)
+      .query("chapters")
+      .withIndex("by_book_chapter", (q) =>
+        q.eq("bookId", bookId as Id<"books">).eq("chapterNumber", chapterNumber)
       )
       .first();
 
@@ -137,11 +139,11 @@ export const reviseChapter = internalMutation({
     const now = Date.now();
 
     // Create new version
-    await ctx.db.insert('chapterVersions', {
+    await ctx.db.insert("chapterVersions", {
       chapterId: chapter._id,
       versionNumber: newVersion,
       content,
-      changedBy: 'ai',
+      changedBy: "ai",
       changeDescription: revisionReason,
       createdAt: now,
     });
@@ -171,22 +173,22 @@ export const saveConversationHistory = internalMutation({
   handler: async (ctx, { bookId, messages }) => {
     // Find session
     const session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId as Id<'books'>))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"books">))
       .first();
 
     if (!session) {
       // Create new session with messages
-      await ctx.db.insert('generationSessions', {
-        bookId: bookId as Id<'books'>,
+      await ctx.db.insert("generationSessions", {
+        bookId: bookId as Id<"books">,
         messages,
-        currentStage: 'in_progress',
+        currentStage: "in_progress",
         lastCheckpoint: {
-          step: 'conversation_saved',
+          step: "conversation_saved",
           timestamp: Date.now(),
           data: {},
         },
-        status: 'in_progress',
+        status: "in_progress",
         retryCount: 0,
         lastActiveAt: Date.now(),
         createdAt: Date.now(),
@@ -214,14 +216,14 @@ export const saveCheckpoint = internalMutation({
   handler: async (ctx, { bookId, step, data, timestamp }) => {
     // Find or create generation session
     let session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId as Id<'books'>))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"books">))
       .first();
 
     if (!session) {
       // Create new session
-      session = await ctx.db.insert('generationSessions', {
-        bookId: bookId as Id<'books'>,
+      const sessionId = await ctx.db.insert("generationSessions", {
+        bookId: bookId as Id<"books">,
         messages: [],
         currentStage: step,
         lastCheckpoint: {
@@ -229,11 +231,12 @@ export const saveCheckpoint = internalMutation({
           timestamp,
           data,
         },
-        status: 'in_progress',
+        status: "in_progress",
         retryCount: 0,
         lastActiveAt: timestamp,
         createdAt: timestamp,
       });
+      session = await ctx.db.get(sessionId);
     } else {
       // Update existing session
       await ctx.db.patch(session._id, {
@@ -264,24 +267,24 @@ export const deductBookCredits = internalMutation({
   returns: v.object({ remainingCredits: v.number() }),
   handler: async (ctx, { bookId, amount, reason }) => {
     // Get book to find user
-    const book = await ctx.db.get(bookId as Id<'books'>);
+    const book = await ctx.db.get(bookId as Id<"books">);
     if (!book) {
-      throw new Error('Book not found');
+      throw new Error("Book not found");
     }
 
     // Get user profile
     const profile = await ctx.db
-      .query('profile')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', book.userId))
+      .query("profile")
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", book.userId))
       .first();
 
     if (!profile) {
-      throw new Error('User profile not found');
+      throw new Error("User profile not found");
     }
 
     const currentCredits = profile.credits ?? 0;
     if (currentCredits < amount) {
-      throw new Error('Insufficient credits');
+      throw new Error("Insufficient credits");
     }
 
     const newCredits = currentCredits - amount;
@@ -313,19 +316,22 @@ export const createChapterVersion = internalMutation({
     changeDescription: v.string(),
   },
   returns: v.object({ versionNumber: v.number() }),
-  handler: async (ctx, { chapterId, content, changedBy, changeDescription }) => {
+  handler: async (
+    ctx,
+    { chapterId, content, changedBy, changeDescription }
+  ) => {
     // Get current chapter
-    const chapter = await ctx.db.get(chapterId as Id<'chapters'>);
+    const chapter = await ctx.db.get(chapterId as Id<"chapters">);
     if (!chapter) {
-      throw new Error('Chapter not found');
+      throw new Error("Chapter not found");
     }
 
     const newVersion = chapter.currentVersion + 1;
     const now = Date.now();
 
     // Create new version
-    await ctx.db.insert('chapterVersions', {
-      chapterId: chapterId as Id<'chapters'>,
+    await ctx.db.insert("chapterVersions", {
+      chapterId: chapterId as Id<"chapters">,
       versionNumber: newVersion,
       content,
       changedBy,
@@ -334,7 +340,7 @@ export const createChapterVersion = internalMutation({
     });
 
     // Update chapter
-    await ctx.db.patch(chapterId as Id<'chapters'>, {
+    await ctx.db.patch(chapterId as Id<"chapters">, {
       content,
       currentVersion: newVersion,
       wordCount: content.split(/\s+/).length,
@@ -351,28 +357,31 @@ export const revertToVersion = internalMutation({
     versionNumber: v.number(),
   },
   returns: v.object({ success: v.boolean(), newVersionNumber: v.number() }),
-  handler: async (ctx, { chapterId, versionNumber }) => {
+  handler: async (
+    ctx,
+    { chapterId, versionNumber }
+  ): Promise<{ success: boolean; newVersionNumber: number }> => {
     // Get the version to revert to
     const version = await ctx.db
-      .query('chapterVersions')
-      .withIndex('by_chapter_version', (q) =>
+      .query("chapterVersions")
+      .withIndex("by_chapter_version", (q) =>
         q
-          .eq('chapterId', chapterId as Id<'chapters'>)
-          .eq('versionNumber', versionNumber)
+          .eq("chapterId", chapterId as Id<"chapters">)
+          .eq("versionNumber", versionNumber)
       )
       .first();
 
     if (!version) {
-      throw new Error('Version not found');
+      throw new Error("Version not found");
     }
 
     // Create a new version (marking as revert)
-    const result = await ctx.runMutation(
+    const result: { versionNumber: number } = await ctx.runMutation(
       internal.features.books.mutations.createChapterVersion,
       {
         chapterId,
         content: version.content,
-        changedBy: 'user',
+        changedBy: "user",
         changeDescription: `Reverted to version ${versionNumber}`,
       }
     );
@@ -393,12 +402,12 @@ export const retryFailedGeneration = internalMutation({
   handler: async (ctx, { bookId }) => {
     // Find the session
     const session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId as Id<'books'>))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"books">))
       .first();
 
     if (!session) {
-      throw new Error('No generation session found');
+      throw new Error("No generation session found");
     }
 
     // Increment retry count
@@ -406,19 +415,19 @@ export const retryFailedGeneration = internalMutation({
 
     // Max 3 retries
     if (newRetryCount > 3) {
-      throw new Error('Maximum retry attempts reached');
+      throw new Error("Maximum retry attempts reached");
     }
 
     // Update session to in_progress
     await ctx.db.patch(session._id, {
-      status: 'in_progress',
+      status: "in_progress",
       retryCount: newRetryCount,
       lastActiveAt: Date.now(),
     });
 
     // Update book status
-    await ctx.db.patch(bookId as Id<'books'>, {
-      status: 'generating',
+    await ctx.db.patch(bookId as Id<"books">, {
+      status: "generating",
       updatedAt: Date.now(),
     });
 
@@ -434,20 +443,20 @@ export const pauseGeneration = internalMutation({
   handler: async (ctx, { bookId }) => {
     // Find the session
     const session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId as Id<'books'>))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"books">))
       .first();
 
     if (session) {
       await ctx.db.patch(session._id, {
-        status: 'paused',
+        status: "paused",
         lastActiveAt: Date.now(),
       });
     }
 
     // Update book status
-    await ctx.db.patch(bookId as Id<'books'>, {
-      status: 'draft',
+    await ctx.db.patch(bookId as Id<"books">, {
+      status: "draft",
       updatedAt: Date.now(),
     });
 
@@ -464,24 +473,23 @@ export const markGenerationFailed = internalMutation({
   handler: async (ctx, { bookId, errorMessage }) => {
     // Find the session
     const session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId as Id<'books'>))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"books">))
       .first();
 
     if (session) {
       await ctx.db.patch(session._id, {
-        status: 'failed',
+        status: "failed",
         lastActiveAt: Date.now(),
       });
     }
 
     // Update book status
-    await ctx.db.patch(bookId as Id<'books'>, {
-      status: 'failed',
+    await ctx.db.patch(bookId as Id<"books">, {
+      status: "failed",
       updatedAt: Date.now(),
     });
 
     return { success: true };
   },
 });
-

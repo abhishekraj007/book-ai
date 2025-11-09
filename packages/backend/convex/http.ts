@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { authComponent, createAuth } from "./lib/betterAuth";
 // import * as PolarWebhooks from "./lib/polarWebhooks";
 import { handleRevenueCatWebhook } from "./lib/revenuecatWebhooks";
+import { handleBookGeneration } from "./features/books/http";
 
 const http = httpRouter();
 
@@ -27,11 +28,14 @@ http.route({
 http.route({
   path: "/book/generate",
   method: "POST",
-  handler: async (req) => {
-    // This will be implemented as an httpAction
-    const { handleBookGeneration } = await import("./features/books/http");
-    return handleBookGeneration(req);
-  },
+  handler: handleBookGeneration,
+});
+
+// Register OPTIONS handler for CORS preflight
+http.route({
+  path: "/book/generate",
+  method: "OPTIONS",
+  handler: handleBookGeneration,
 });
 
 export default http;

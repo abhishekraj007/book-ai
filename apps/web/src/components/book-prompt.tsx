@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useMutation } from 'convex/react';
-import { api } from '@book-ai/backend/convex/_generated/api';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation } from "convex/react";
+import { api } from "@book-ai/backend/convex/_generated/api";
 import {
   PromptInput,
   PromptInputBody,
@@ -11,17 +11,18 @@ import {
   PromptInputFooter,
   PromptInputSubmit,
   type PromptInputMessage,
-} from '@/components/ai-elements/prompt-input';
-import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
-import { cn } from '@/lib/utils';
+} from "@/components/ai-elements/prompt-input";
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
+import { cn } from "@/lib/utils";
+import type { ChatStatus } from "ai";
 
 const suggestions = [
   "A children's storybook about a brave knight",
-  'A coloring book of intricate mandalas',
-  'A cookbook of vegan dessert recipes',
-  'A sci-fi novel about AI discovering ancient human music',
-  'A self-help guide for creative entrepreneurs',
-  'A history book about ancient civilizations',
+  "A coloring book of intricate mandalas",
+  "A cookbook of vegan dessert recipes",
+  "A sci-fi novel about AI discovering ancient human music",
+  "A self-help guide for creative entrepreneurs",
+  "A history book about ancient civilizations",
 ];
 
 interface BookPromptProps {
@@ -30,39 +31,42 @@ interface BookPromptProps {
 
 /**
  * v0.app-inspired Book Creation Prompt using AI Elements
- * 
+ *
  * Uses PromptInput and Suggestions from AI Elements for consistent UI
  */
 export function BookPrompt({ className }: BookPromptProps) {
   const router = useRouter();
   const createBook = useMutation(api.features.books.index.createBook);
-  
-  const [text, setText] = useState('');
-  const [status, setStatus] = useState<'idle' | 'streaming'>('idle');
+
+  const [text, setText] = useState("");
+  const [status, setStatus] = useState<ChatStatus | undefined>(undefined);
 
   const handleSubmit = async (message: PromptInputMessage) => {
     if (!message.text?.trim()) return;
-    
-    setStatus('streaming');
-    
+
+    setStatus("submitted");
+
     try {
       // Create book with the prompt as title
       const result = await createBook({
-        title: message.text.length > 50 ? message.text.substring(0, 50) + '...' : message.text,
-        type: 'fiction', // Default, AI will determine from prompt
-        language: 'English',
+        title:
+          message.text.length > 50
+            ? message.text.substring(0, 50) + "..."
+            : message.text,
+        type: "fiction", // Default, AI will determine from prompt
+        language: "English",
       });
-      
+
       // Navigate to generation page
       router.push(`/books/${result.bookId}`);
     } catch (error) {
-      console.error('Failed to create book:', error);
+      console.error("Failed to create book:", error);
       alert(
         error instanceof Error
           ? error.message
-          : 'Failed to create book. Please try again.'
+          : "Failed to create book. Please try again."
       );
-      setStatus('idle');
+      setStatus("error");
     }
   };
 
@@ -71,7 +75,7 @@ export function BookPrompt({ className }: BookPromptProps) {
   };
 
   return (
-    <div className={cn('w-full max-w-4xl mx-auto', className)}>
+    <div className={cn("w-full max-w-4xl mx-auto", className)}>
       <div className="space-y-8">
         {/* Title */}
         <div className="text-center space-y-3">
@@ -90,9 +94,9 @@ export function BookPrompt({ className }: BookPromptProps) {
               className="min-h-[200px] text-lg"
             />
           </PromptInputBody>
-          <PromptInputFooter>
+          <PromptInputFooter className="flex justify-end">
             <PromptInputSubmit
-              disabled={!text.trim() || status === 'streaming'}
+              disabled={!text.trim() || status === "streaming"}
               status={status}
             />
           </PromptInputFooter>
@@ -117,15 +121,16 @@ export function BookPrompt({ className }: BookPromptProps) {
         {/* Info Text */}
         <div className="text-center space-y-2 pt-4">
           <p className="text-sm text-muted-foreground">
-            Powered by <span className="font-semibold">Kimi K2 Thinking AI</span>
+            Powered by{" "}
+            <span className="font-semibold">Kimi K2 Thinking AI</span>
           </p>
           <p className="text-xs text-muted-foreground max-w-2xl mx-auto">
-            Capable of writing entire books with 200-300 sequential tool calls. 
-            The AI will guide you through the process with approval at each step.
+            Capable of writing entire books with 200-300 sequential tool calls.
+            The AI will guide you through the process with approval at each
+            step.
           </p>
         </div>
       </div>
     </div>
   );
 }
-

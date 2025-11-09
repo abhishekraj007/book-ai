@@ -1,13 +1,13 @@
 "use node";
 
-import { action } from '../../_generated/server';
-import { v } from 'convex/values';
-import { internal } from '../../_generated/api';
-import { marked } from 'marked';
+import { action } from "../../_generated/server";
+import { v } from "convex/values";
+import { internal } from "../../_generated/api";
+import { marked } from "marked";
 
 /**
  * Book Export Actions
- * 
+ *
  * Supports exporting books to:
  * - Markdown (.md)
  * - HTML (.html)
@@ -28,16 +28,22 @@ export const exportToMarkdown = action({
     content: v.string(),
     filename: v.string(),
   }),
-  handler: async (ctx, { bookId }) => {
+  handler: async (
+    ctx,
+    { bookId }
+  ): Promise<{ content: string; filename: string }> => {
     // Get book and chapters
-    const book = await ctx.runQuery(internal.features.books.queries.getBookContext, {
-      bookId,
-      includeChapters: true,
-    });
+    const book = await ctx.runQuery(
+      internal.features.books.queries.getBookContext,
+      {
+        bookId,
+        includeChapters: true,
+      }
+    );
 
-    let markdown = `# ${book.book.title}\n\n`;
+    let markdown: string = `# ${book.book.title}\n\n`;
     markdown += `**Type:** ${book.book.type}\n\n`;
-    
+
     if (book.book.metadata.genre) {
       markdown += `**Genre:** ${book.book.metadata.genre}\n\n`;
     }
@@ -53,7 +59,7 @@ export const exportToMarkdown = action({
 
     return {
       content: markdown,
-      filename: `${book.book.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`,
+      filename: `${book.book.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.md`,
     };
   },
 });
@@ -70,15 +76,21 @@ export const exportToHTML = action({
     content: v.string(),
     filename: v.string(),
   }),
-  handler: async (ctx, { bookId }) => {
+  handler: async (
+    ctx,
+    { bookId }
+  ): Promise<{ content: string; filename: string }> => {
     // Get book and chapters
-    const book = await ctx.runQuery(internal.features.books.queries.getBookContext, {
-      bookId,
-      includeChapters: true,
-    });
+    const book = await ctx.runQuery(
+      internal.features.books.queries.getBookContext,
+      {
+        bookId,
+        includeChapters: true,
+      }
+    );
 
     // Convert markdown to HTML using marked
-    let html = `<!DOCTYPE html>
+    let html: string = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -126,7 +138,7 @@ export const exportToHTML = action({
   <h1>${book.book.title}</h1>
   <div class="metadata">
     <p><strong>Type:</strong> ${book.book.type}</p>
-    ${book.book.metadata.genre ? `<p><strong>Genre:</strong> ${book.book.metadata.genre}</p>` : ''}
+    ${book.book.metadata.genre ? `<p><strong>Genre:</strong> ${book.book.metadata.genre}</p>` : ""}
   </div>
   <hr>
 `;
@@ -144,7 +156,7 @@ export const exportToHTML = action({
 
     return {
       content: html,
-      filename: `${book.book.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.html`,
+      filename: `${book.book.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.html`,
     };
   },
 });
@@ -161,43 +173,49 @@ export const exportToText = action({
     content: v.string(),
     filename: v.string(),
   }),
-  handler: async (ctx, { bookId }) => {
+  handler: async (
+    ctx,
+    { bookId }
+  ): Promise<{ content: string; filename: string }> => {
     // Get book and chapters
-    const book = await ctx.runQuery(internal.features.books.queries.getBookContext, {
-      bookId,
-      includeChapters: true,
-    });
+    const book = await ctx.runQuery(
+      internal.features.books.queries.getBookContext,
+      {
+        bookId,
+        includeChapters: true,
+      }
+    );
 
-    let text = `${book.book.title.toUpperCase()}\n`;
-    text += `${'='.repeat(book.book.title.length)}\n\n`;
+    let text: string = `${book.book.title.toUpperCase()}\n`;
+    text += `${"=".repeat(book.book.title.length)}\n\n`;
     text += `Type: ${book.book.type}\n`;
-    
+
     if (book.book.metadata.genre) {
       text += `Genre: ${book.book.metadata.genre}\n`;
     }
 
-    text += `\n${'='.repeat(50)}\n\n`;
+    text += `\n${"=".repeat(50)}\n\n`;
 
     // Add chapters (strip markdown formatting)
     for (const chapter of book.chapters) {
       text += `CHAPTER ${chapter.chapterNumber}: ${chapter.title.toUpperCase()}\n`;
-      text += `${'-'.repeat(50)}\n\n`;
-      
+      text += `${"-".repeat(50)}\n\n`;
+
       // Simple markdown removal (basic)
       let plainContent = chapter.content
-        .replace(/#{1,6}\s+/g, '') // Remove headers
-        .replace(/\*\*(.+?)\*\*/g, '$1') // Remove bold
-        .replace(/\*(.+?)\*/g, '$1') // Remove italic
-        .replace(/\[(.+?)\]\(.+?\)/g, '$1') // Remove links
-        .replace(/`(.+?)`/g, '$1'); // Remove code
-      
+        .replace(/#{1,6}\s+/g, "") // Remove headers
+        .replace(/\*\*(.+?)\*\*/g, "$1") // Remove bold
+        .replace(/\*(.+?)\*/g, "$1") // Remove italic
+        .replace(/\[(.+?)\]\(.+?\)/g, "$1") // Remove links
+        .replace(/`(.+?)`/g, "$1"); // Remove code
+
       text += `${plainContent}\n\n`;
-      text += `${'='.repeat(50)}\n\n`;
+      text += `${"=".repeat(50)}\n\n`;
     }
 
     return {
       content: text,
-      filename: `${book.book.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`,
+      filename: `${book.book.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.txt`,
     };
   },
 });
@@ -223,16 +241,32 @@ export const getExportData = action({
     ),
     metadata: v.any(),
   }),
-  handler: async (ctx, { bookId }) => {
+  handler: async (
+    ctx,
+    { bookId }
+  ): Promise<{
+    title: string;
+    author: string;
+    chapters: Array<{
+      chapterNumber: number;
+      title: string;
+      content: string;
+      htmlContent: string;
+    }>;
+    metadata: any;
+  }> => {
     // Get book and chapters
-    const book = await ctx.runQuery(internal.features.books.queries.getBookContext, {
-      bookId,
-      includeChapters: true,
-    });
+    const book = await ctx.runQuery(
+      internal.features.books.queries.getBookContext,
+      {
+        bookId,
+        includeChapters: true,
+      }
+    );
 
     // Convert each chapter's markdown to HTML
     const chaptersWithHtml = await Promise.all(
-      book.chapters.map(async (chapter) => ({
+      book.chapters.map(async (chapter: any) => ({
         chapterNumber: chapter.chapterNumber,
         title: chapter.title,
         content: chapter.content,
@@ -242,10 +276,9 @@ export const getExportData = action({
 
     return {
       title: book.book.title,
-      author: 'Generated by Book AI', // TODO: Get actual user name
+      author: "Generated by Book AI", // TODO: Get actual user name
       chapters: chaptersWithHtml,
       metadata: book.book.metadata,
     };
   },
 });
-
