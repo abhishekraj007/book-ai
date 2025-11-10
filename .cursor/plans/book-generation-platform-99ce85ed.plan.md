@@ -1,365 +1,313 @@
 <!-- 99ce85ed-679f-45c2-abc7-57dd19e0d5ed 69dc70ab-ac59-44bd-a30b-4b942fe300d0 -->
-# Migrate to Convex Agent Component
+# Fix Preview and Chat Panel UX Issues
 
-## Why This Migration?
+## 1. Fix Suggestion Buttons (Chat Panel)
 
-**Current Issue:** Backend streams successfully but frontend can't parse the text stream format from `toTextStreamResponse()`.
+**File**: `apps/web/src/components/books/chat-panel.tsx`
 
-**Better Solution:** Use [Convex Agent Component](https://docs.convex.dev/agents) which provides:
+Current issue: Suggestion buttons appear on all assistant messages.
 
-- Websocket-based real-time streaming (faster than HTTP)
-- Automatic message persistence in threads
-- Built-in conversation history and context
-- Native Convex integration with live queries
-- Perfect for multi-step approval workflows
-
-## Architecture Changes
-
-**Before (HTTP Streaming):**
-
-```
-Frontend → HTTP POST → Convex HTTP Action → streamText → SSE Response
-                      ↓
-                  Manual message persistence
-```
-
-**After (Convex Agent):**
-
-```
-Frontend → Convex Mutation → Create/Continue Thread → Agent generates
-                      ↓
-              Automatic message persistence
-                      ↓
-         Frontend useQuery (real-time updates via websockets)
-```
-
-## Implementation Steps
-
-### 1. Install and Configure Convex Agent Component
-
-**File:** `packages/backend/convex/convex.config.ts` (create new)
+**Solution**: Only show suggestions on the last assistant message.
 
 ```typescript
-import { defineApp } from "convex/server";
-import agent from "@convex-dev/agent/convex.config";
+// In getContextualSuggestions or in MessageWithSmoothing component
+// Add index check to only show on last message
+const isLastMessage = messages[messages.length - 1]?.id === message.id;
 
-const app = defineApp();
-app.use(agent);
-
-export default app;
+// Then in render:
+{message.role === "assistant" &&
+  !isLoading &&
+  message.status !== "streaming" &&
+  isLastMessage && // Add this condition
+  suggestions.length > 0 && (
+    // ... render suggestions
+  )}
 ```
 
-**Install package:**
+## 2. Make Chapter Tabs Scroll Anchors (Preview Panel)
 
-```bash
-cd packages/backend
-pnpm install @convex-dev/agent
-npx convex dev  # Generate component code
-```
+**File**: `apps/web/src/components/books/preview-panel.tsx`
 
-### 2. Create Book Generation Agent
+Current issue: Tabs don't do anything when clicked.
 
-**File:** `packages/backend/convex/features/books/bookAgent.ts` (new)
+**Solution**:
 
-Define agent with tools:
-
+- Add `id` attributes to each chapter section
+- Convert tabs to clickable links that smooth scroll to chapters
+- Remove `Tabs` component, use custom navigation
 ```typescript
-import { Agent } from "@convex-dev/agent";
-import { openai } from "@ai-sdk/openai";
-import { components } from "../../_generated/api";
-import { z } from "zod";
-import { internal } from "../../_generated/api";
+// Add refs and scroll handler
+const chapterRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-export const createBookAgent = (bookId: string, bookContext: any) => {
-  return new Agent(components.agent, {
-    name: "Book Writer",
-    languageModel: openai.chat("gpt-4o"),  // Using AI Gateway model
-    instructions: `You are an expert book writing assistant...
-      Book: "${bookContext.book.title}" (${bookContext.book.type})
-      Chapters completed: ${bookContext.chapters?.length || 0}
-      
-      Guide the user step-by-step with approval at each stage.`,
-    
-    tools: {
-      saveOutline: {
-        description: "Save book outline after user approval",
-        parameters: z.object({
-          chapterCount: z.number().min(1).max(100),
-          chapterTitles: z.array(z.string()),
-          synopsis: z.string(),
-          estimatedWordsPerChapter: z.number(),
-        }),
-        execute: async (ctx, args) => {
-          await ctx.runMutation(internal.features.books.mutations.saveOutline, {
-            bookId,
-            ...args,
-          });
-          return "Outline saved successfully!";
-        },
-      },
-      
-      saveChapter: {
-        description: "Save chapter after user approval",
-        parameters: z.object({
-          chapterNumber: z.number(),
-          title: z.string(),
-          content: z.string(),
-          wordCount: z.number(),
-        }),
-        execute: async (ctx, args) => {
-          const result = await ctx.runMutation(
-            internal.features.books.mutations.saveChapter,
-            { bookId, ...args }
-          );
-          return `Chapter ${args.chapterNumber} saved!`;
-        },
-      },
-      
-      saveCheckpoint: {
-        description: "Save progress checkpoint",
-        parameters: z.object({
-          step: z.string(),
-          data: z.any(),
-        }),
-        execute: async (ctx, args) => {
-          await ctx.runMutation(
-            internal.features.books.mutations.saveCheckpoint,
-            { bookId, ...args, timestamp: Date.now() }
-          );
-          return "Checkpoint saved";
-        },
-      },
-    },
-    
-    maxSteps: 10,
+const scrollToChapter = (chapterId: string) => {
+  chapterRefs.current[chapterId]?.scrollIntoView({ 
+    behavior: 'smooth', 
+    block: 'start' 
   });
 };
+
+// In chapter rendering:
+<div 
+  ref={(el) => (chapterRefs.current[`chapter-${chapter.chapterNumber}`] = el)}
+  id={`chapter-${chapter.chapterNumber}`}
+  className="space-y-6"
+>
+  {/* chapter content */}
+</div>
+
+// Replace Tabs with custom navigation:
+<div className="flex items-center gap-2 border-b px-6 py-2 overflow-x-auto">
+  {chapters.map((chapter) => (
+    <button
+      key={chapter._id}
+      onClick={() => scrollToChapter(`chapter-${chapter.chapterNumber}`)}
+      className="px-3 py-1.5 text-xs rounded hover:bg-muted"
+    >
+      Chapter {chapter.chapterNumber}
+    </button>
+  ))}
+  {/* Same for drafts */}
+</div>
 ```
 
-### 3. Create Convex Actions for Thread Management
 
-**File:** `packages/backend/convex/features/books/actions.ts` (new)
+## 3. Reorder Drafts in Natural Chapter Order (Preview Panel)
 
-Replace HTTP endpoint with Convex actions:
+**File**: `apps/web/src/components/books/preview-panel.tsx`
+
+Current issue: Drafts appear at the bottom, hard to review in context.
+
+**Solution**: Merge and sort chapters and drafts by chapter number.
 
 ```typescript
-import { action } from "../../_generated/server";
-import { v } from "convex/values";
-import { createBookAgent } from "./bookAgent";
-import { internal } from "../../_generated/api";
+// Create merged and sorted array
+const allChapters = useMemo(() => {
+  const approved = chapters.map(ch => ({ ...ch, isDraft: false }));
+  const drafts = (draftChapters || []).map(d => ({ ...d, isDraft: true }));
+  
+  return [...approved, ...drafts].sort((a, b) => 
+    a.chapterNumber - b.chapterNumber
+  );
+}, [chapters, draftChapters]);
 
-// Start new book generation (creates thread)
-export const startGeneration = action({
+// Then render allChapters instead of chapters first, then draftChapters
+{allChapters.map((item) => (
+  item.isDraft ? (
+    // Render draft with approve/reject UI
+  ) : (
+    // Render regular chapter
+  )
+))}
+```
+
+## 4. Implement View/Edit Mode Toggle (Preview Panel & Header)
+
+**File**: `apps/web/src/components/books/preview-panel.tsx`
+
+Add edit mode state and functionality:
+
+```typescript
+// Add to PreviewPanel props
+interface PreviewPanelProps {
+  book: any;
+  chapters: any[];
+  isLoading: boolean;
+  activeView: "view" | "edit"; // Add this
+  onViewChange: (view: "view" | "edit") => void; // Add this
+}
+
+// In View mode: Show formatted content (current behavior)
+// In Edit mode: Show editable textarea + action buttons
+
+{activeView === "edit" ? (
+  <EditableChapter 
+    chapter={chapter}
+    onSave={handleSaveChapter}
+    onRewrite={handleRewriteSection}
+  />
+) : (
+  <div className="prose prose-lg...">
+    {/* Current view mode */}
+  </div>
+)}
+```
+
+**File**: `apps/web/src/components/books/editable-chapter.tsx` (NEW)
+
+Create new component for edit mode:
+
+```typescript
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+
+interface EditableChapterProps {
+  chapter: any;
+  onSave: (chapterId: string, content: string) => void;
+  onRewrite?: (chapterId: string, selection: string) => void;
+}
+
+export function EditableChapter({ chapter, onSave, onRewrite }: EditableChapterProps) {
+  const [content, setContent] = useState(chapter.content);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+
+  const handleTextSelection = () => {
+    const selection = window.getSelection()?.toString();
+    if (selection) {
+      setSelectedText(selection);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Textarea
+        value={content}
+        onChange={(e) => {
+          setContent(e.target.value);
+          setHasChanges(true);
+        }}
+        onMouseUp={handleTextSelection}
+        className="min-h-[400px] font-serif text-base leading-relaxed"
+      />
+      
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        {hasChanges && (
+          <Button onClick={() => onSave(chapter._id, content)}>
+            Save Changes
+          </Button>
+        )}
+        {selectedText && onRewrite && (
+          <Button 
+            variant="outline"
+            onClick={() => onRewrite(chapter._id, selectedText)}
+          >
+            Rewrite Selection
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+## 5. Add Chapter Edit Mutations (Backend)
+
+**File**: `packages/backend/convex/features/books/index.ts`
+
+Add public mutation for editing chapter content:
+
+```typescript
+export const updateChapterContent = mutation({
   args: {
-    bookId: v.id("books"),
-    prompt: v.string(),
+    chapterId: v.id('chapters'),
+    content: v.string(),
   },
-  handler: async (ctx, { bookId, prompt }) => {
-    // Get book context
-    const bookContext = await ctx.runQuery(
-      internal.features.books.queries.getBookContext,
-      { bookId, includeChapters: true }
-    );
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { chapterId, content }) => {
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) throw new Error('Not authenticated');
     
-    // Create agent
-    const agent = createBookAgent(bookId, bookContext);
+    const chapter = await ctx.db.get(chapterId);
+    if (!chapter) throw new Error('Chapter not found');
     
-    // Create thread and generate first response
-    const { threadId, thread } = await agent.createThread(ctx);
-    await thread.generateText({ prompt });
+    const book = await ctx.db.get(chapter.bookId);
+    if (!book || book.userId !== user.subject) {
+      throw new Error('Not authorized');
+    }
     
-    // Save threadId to book for resuming
-    await ctx.runMutation(internal.features.books.mutations.updateBook, {
-      bookId,
-      updates: { threadId },
+    // Save as new version
+    await ctx.runMutation(internal.features.books.mutations.createChapterVersion, {
+      chapterId: chapterId as string,
+      content,
+      changedBy: 'user',
+      changeDescription: 'Manual edit',
     });
-    
-    return { threadId };
-  },
-});
-
-// Continue existing conversation
-export const continueGeneration = action({
-  args: {
-    bookId: v.id("books"),
-    threadId: v.string(),
-    prompt: v.string(),
-  },
-  handler: async (ctx, { bookId, threadId, prompt }) => {
-    const bookContext = await ctx.runQuery(
-      internal.features.books.queries.getBookContext,
-      { bookId, includeChapters: true }
-    );
-    
-    const agent = createBookAgent(bookId, bookContext);
-    const { thread } = await agent.continueThread(ctx, { threadId });
-    await thread.generateText({ prompt });
     
     return { success: true };
   },
 });
 ```
 
-### 4. Add Thread Messages Query
+**File**: `packages/backend/convex/features/books/mutations.ts`
 
-**File:** `packages/backend/convex/features/books/queries.ts` (update)
-
-Add query to fetch thread messages:
+Add helper mutation for creating chapter versions:
 
 ```typescript
-import { query } from "../../_generated/server";
-import { listUIMessages } from "@convex-dev/agent";
-import { components } from "../../_generated/api";
-
-export const getThreadMessages = query({
+export const createChapterVersion = internalMutation({
   args: {
-    threadId: v.string(),
+    chapterId: v.string(),
+    content: v.string(),
+    changedBy: v.string(),
+    changeDescription: v.string(),
   },
-  returns: v.array(v.any()),
-  handler: async (ctx, { threadId }) => {
-    const messages = await listUIMessages(ctx, components.agent, {
-      threadId,
-      paginationOpts: { cursor: null, numItems: 100 },
+  returns: v.object({ versionId: v.string() }),
+  handler: async (ctx, args) => {
+    const chapter = await ctx.db.get(args.chapterId as Id<"chapters">);
+    if (!chapter) throw new Error("Chapter not found");
+    
+    const newVersion = chapter.currentVersion + 1;
+    
+    const versionId = await ctx.db.insert("chapterVersions", {
+      chapterId: args.chapterId as Id<"chapters">,
+      versionNumber: newVersion,
+      content: args.content,
+      changedBy: args.changedBy,
+      changeDescription: args.changeDescription,
+      createdAt: Date.now(),
     });
-    return messages.page;
+    
+    await ctx.db.patch(args.chapterId as Id<"chapters">, {
+      content: args.content,
+      currentVersion: newVersion,
+      updatedAt: Date.now(),
+    });
+    
+    return { versionId };
   },
 });
 ```
 
-### 5. Update Frontend Hook
+## 6. Wire Up Edit Mode in Page Component
 
-**File:** `apps/web/src/hooks/use-book-generation.ts` (replace)
+**File**: `apps/web/src/app/books/[id]/page.tsx`
 
-Switch from HTTP fetch to Convex mutations/queries:
-
-```typescript
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@book-ai/backend/convex/_generated/api";
-import { useCallback, useEffect, useState } from "react";
-import type { Id } from "@book-ai/backend/convex/_generated/dataModel";
-
-export function useBookGeneration(bookId: string, bookTitle?: string) {
-  const [threadId, setThreadId] = useState<string | null>(null);
-  const [input, setInput] = useState("");
-  
-  const startGeneration = useMutation(api.features.books.actions.startGeneration);
-  const continueGeneration = useMutation(api.features.books.actions.continueGeneration);
-  
-  // Real-time subscription to thread messages
-  const messages = useQuery(
-    api.features.books.queries.getThreadMessages,
-    threadId ? { threadId } : "skip"
-  );
-  
-  // Auto-start on mount if book title provided
-  useEffect(() => {
-    if (bookTitle && !threadId) {
-      startGeneration({
-        bookId: bookId as Id<"books">,
-        prompt: `Please create an outline for: ${bookTitle}`,
-      }).then(({ threadId: newThreadId }) => {
-        setThreadId(newThreadId);
-      });
-    }
-  }, [bookTitle, threadId, bookId, startGeneration]);
-  
-  const sendMessage = useCallback(
-    async (text: string) => {
-      if (!threadId) return;
-      await continueGeneration({
-        bookId: bookId as Id<"books">,
-        threadId,
-        prompt: text,
-      });
-      setInput("");
-    },
-    [threadId, bookId, continueGeneration]
-  );
-  
-  const approve = useCallback(() => {
-    sendMessage("Yes, I approve. Please proceed.");
-  }, [sendMessage]);
-  
-  const reject = useCallback(() => {
-    sendMessage("No, please revise that.");
-  }, [sendMessage]);
-  
-  return {
-    messages: messages || [],
-    input,
-    setInput,
-    sendMessage,
-    approve,
-    reject,
-    isLoading: messages === undefined,
-    error: null,
-  };
-}
-```
-
-### 6. Update Database Schema
-
-**File:** `packages/backend/convex/schema.ts` (update)
-
-Add threadId to books table:
+Pass view state to preview panel and handle edit actions:
 
 ```typescript
-books: defineTable({
-  // ... existing fields
-  threadId: v.optional(v.string()),  // Add this
-}),
+const [activeView, setActiveView] = useState<"view" | "edit">("view");
+const updateChapter = useMutation(api.features.books.index.updateChapterContent);
+
+const handleSaveChapter = async (chapterId: string, content: string) => {
+  await updateChapter({ 
+    chapterId: chapterId as Id<"chapters">, 
+    content 
+  });
+};
+
+// In JSX:
+<PreviewPanel 
+  book={book} 
+  chapters={chapters} 
+  isLoading={isLoading}
+  activeView={activeView}
+  onViewChange={setActiveView}
+  onSaveChapter={handleSaveChapter}
+/>
 ```
 
-### 7. Remove Old HTTP Endpoint
+## Summary
 
-**File:** `packages/backend/convex/http.ts` (update)
+These changes will:
 
-Remove the `/book/generate` route:
-
-```typescript
-// Remove these lines:
-// http.route({
-//   path: "/book/generate",
-//   method: "POST",
-//   handler: handleBookGeneration,
-// });
-```
-
-**File:** `packages/backend/convex/features/books/http.ts` (delete)
-
-Delete the entire file - no longer needed!
-
-### 8. Keep AI Gateway Integration
-
-**File:** `packages/backend/convex/lib/aiConfig.ts` (keep as-is)
-
-The agent will use the same `gateway()` models we already configured. The `getModelWithFallback("bookGeneration")` returns `gateway("openai/gpt-4o")` which works directly with Agent's `languageModel` parameter.
-
-## Benefits After Migration
-
-1. **Real-time Updates**: Messages appear instantly via websockets
-2. **Automatic Persistence**: All messages saved to Convex automatically
-3. **Resume Support**: Built-in thread management
-4. **Better Performance**: Websockets > HTTP streaming
-5. **Simpler Code**: No manual SSE parsing or message management
-6. **Agent Playground**: Debug conversations in Convex dashboard
-7. **Vector Search**: Built-in semantic search over conversation history
-8. **Multi-user**: Threads can be shared across users
-
-## Testing Checklist
-
-- [ ] Install @convex-dev/agent package
-- [ ] Run `npx convex dev` to generate component code
-- [ ] Create book and see thread created
-- [ ] Messages appear in real-time in UI
-- [ ] Tools (saveOutline, saveChapter) execute correctly
-- [ ] Approve/Reject buttons work
-- [ ] Refresh page - messages persist and reload
-- [ ] Multiple users can view same book thread
-
-## Migration is One-Way
-
-Once migrated, the HTTP endpoint can be deleted. Convex Agent Component provides all functionality plus more.
+1. Clean up chat by only showing suggestions on the last message
+2. Make chapter navigation functional with smooth scrolling
+3. Show drafts in context for easier review
+4. Enable comprehensive editing with inline editing and contextual tools
+5. Improve overall UX and content management workflow
 
 ### To-dos
 

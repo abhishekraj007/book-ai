@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@book-ai/backend/convex/_generated/api";
 import type { Id } from "@book-ai/backend/convex/_generated/dataModel";
@@ -36,7 +36,8 @@ export default function BookGenerationPage({
     }
   }, [book, router]);
 
-  // Initialize chat with book context - will auto-start with book title
+  // Initialize chat with book context - will auto-start with book title if no existing thread
+  // If book has threadId, resume the conversation instead of starting new
   const {
     messages,
     input,
@@ -47,7 +48,22 @@ export default function BookGenerationPage({
     approve,
     reject,
     sendMessage,
-  } = useBookGeneration(id, book?.title);
+    loadMore,
+    canLoadMore,
+    isLoadingMore,
+  } = useBookGeneration(id, book?.title, book?.threadId);
+
+  // Mutation for updating chapter content
+  const updateChapter = useMutation(
+    api.features.books.index.updateChapterContent
+  );
+
+  const handleSaveChapter = async (chapterId: string, content: string) => {
+    await updateChapter({
+      chapterId: chapterId as Id<"chapters">,
+      content,
+    });
+  };
 
   // Show loading state while fetching book
   if (book === undefined) {
@@ -100,9 +116,19 @@ export default function BookGenerationPage({
           onApprove={approve}
           onReject={reject}
           onSendMessage={sendMessage}
+          loadMore={() => loadMore(20)}
+          canLoadMore={canLoadMore}
+          isLoadingMore={isLoadingMore}
         />
 
-        <PreviewPanel book={book} chapters={chapters} isLoading={isLoading} />
+        <PreviewPanel
+          book={book}
+          chapters={chapters}
+          isLoading={isLoading}
+          activeView={activeView}
+          onViewChange={setActiveView}
+          onSaveChapter={handleSaveChapter}
+        />
       </div>
     </div>
   );

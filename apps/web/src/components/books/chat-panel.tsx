@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Check,
-  X,
-  BookOpen,
-  Sparkles,
-  RefreshCw,
-  TrendingUp,
-} from "lucide-react";
+import { Check, X, BookOpen, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSmoothText } from "@convex-dev/agent/react";
 import {
@@ -17,6 +10,12 @@ import {
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import {
+  Task,
+  TaskTrigger,
+  TaskContent,
+  TaskItem,
+} from "@/components/ai-elements/task";
+import {
   PromptInput,
   PromptInputBody,
   PromptInputTextarea,
@@ -25,6 +24,9 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { cn } from "@/lib/utils";
+import { getContextualSuggestions } from "@/utils/chat-utils";
+import { Markdown } from "@/components/ui/markdown";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 
 interface ChatPanelProps {
   messages: any[];
@@ -36,106 +38,9 @@ interface ChatPanelProps {
   onApprove: () => void;
   onReject: () => void;
   onSendMessage: (message: string) => void;
-}
-
-/**
- * Get contextual suggestion buttons based on message content
- */
-function getContextualSuggestions(
-  text: string
-): Array<{ label: string; message: string; icon?: React.ReactNode }> {
-  const lowerText = text.toLowerCase();
-  const suggestions: Array<{
-    label: string;
-    message: string;
-    icon?: React.ReactNode;
-  }> = [];
-
-  // Chapter review context
-  if (
-    lowerText.includes("review") ||
-    lowerText.includes("meets your vision") ||
-    lowerText.includes("changes you'd like")
-  ) {
-    suggestions.push(
-      {
-        label: "Looks good",
-        message: "Looks good, continue",
-        icon: <Check className="h-3 w-3" />,
-      },
-      {
-        label: "Rewrite",
-        message: "Please rewrite this chapter",
-        icon: <RefreshCw className="h-3 w-3" />,
-      },
-      {
-        label: "Improve",
-        message: "Please improve this chapter",
-        icon: <TrendingUp className="h-3 w-3" />,
-      }
-    );
-  }
-
-  // General chapter content context
-  if (
-    lowerText.includes("chapter") &&
-    (lowerText.includes("complete") ||
-      lowerText.includes("finished") ||
-      lowerText.includes("ready"))
-  ) {
-    suggestions.push(
-      {
-        label: "Continue",
-        message: "Looks good, continue",
-        icon: <Check className="h-3 w-3" />,
-      },
-      {
-        label: "Rewrite",
-        message: "Please rewrite this chapter",
-        icon: <RefreshCw className="h-3 w-3" />,
-      },
-      {
-        label: "Improve",
-        message: "Please improve this chapter",
-        icon: <TrendingUp className="h-3 w-3" />,
-      }
-    );
-  }
-
-  // Outline context
-  if (
-    lowerText.includes("outline") &&
-    (lowerText.includes("proceed") || lowerText.includes("changes"))
-  ) {
-    suggestions.push(
-      {
-        label: "Looks good",
-        message: "Looks good, continue",
-        icon: <Check className="h-3 w-3" />,
-      },
-      {
-        label: "Revise",
-        message: "Please revise the outline",
-        icon: <RefreshCw className="h-3 w-3" />,
-      }
-    );
-  }
-
-  // Default suggestions for any assistant message asking for feedback
-  if (suggestions.length === 0) {
-    if (
-      lowerText.includes("?") ||
-      lowerText.includes("let me know") ||
-      lowerText.includes("feedback")
-    ) {
-      suggestions.push(
-        { label: "Looks good", message: "Looks good, continue" },
-        { label: "Improve", message: "Please improve this" }
-      );
-    }
-  }
-
-  return suggestions;
+  loadMore?: () => void;
+  canLoadMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 /**
@@ -148,21 +53,26 @@ function MessageWithSmoothing({
   onApprove,
   onReject,
   onSendMessage,
+  isLastMessage,
 }: {
   message: any;
   isLoading: boolean;
   onApprove: () => void;
   onReject: () => void;
   onSendMessage: (message: string) => void;
+  isLastMessage: boolean;
 }) {
   // Use smooth text for streaming messages
   const [smoothText] = useSmoothText(message.text || message.content || "", {
     startStreaming: message.status === "streaming",
   });
 
-  // Get contextual suggestions for this message
+  // Get contextual suggestions for this message (only on last assistant message)
   const suggestions =
-    message.role === "assistant" && !isLoading && message.status !== "streaming"
+    message.role === "assistant" &&
+    !isLoading &&
+    message.status !== "streaming" &&
+    isLastMessage
       ? getContextualSuggestions(smoothText)
       : [];
 
@@ -182,32 +92,100 @@ function MessageWithSmoothing({
             : "bg-muted"
         )}
       >
-        {/* Render smoothed text */}
-        <div className="whitespace-pre-wrap">{smoothText}</div>
+        {/* Render smoothed text - use Markdown for assistant, plain text for user */}
+        {message.role === "assistant" ? (
+          <div className="text-sm [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h1]:mt-3 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1 [&_h3]:mt-2 [&_p]:mb-2 [&_p]:leading-relaxed [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-1">
+            <Markdown>{smoothText}</Markdown>
+          </div>
+        ) : (
+          <div className="whitespace-pre-wrap">{smoothText}</div>
+        )}
 
-        {/* Show streaming indicator */}
+        {/* Show streaming indicator with shimmer effect */}
         {message.status === "streaming" && (
-          <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-current" />
+          <div className="mt-2">
+            <Shimmer className="text-xs text-muted-foreground">
+              Thinking...
+            </Shimmer>
+          </div>
         )}
 
         {/* Tool invocations */}
-        {message.toolInvocations?.map((tool: any) => (
-          <div
-            key={tool.toolCallId}
-            className="mt-2 rounded border bg-background p-2 text-xs"
-          >
-            <div className="font-semibold text-foreground">
-              {tool.toolName === "saveOutline" && "✓ Outline Saved"}
-              {tool.toolName === "saveChapter" && "✓ Chapter Saved"}
-              {tool.toolName === "saveCheckpoint" && "✓ Progress Saved"}
+        {message.toolInvocations?.map((tool: any) => {
+          const isInProgress = tool.state === "call" || !tool.result;
+          
+          // Special handling for draft chapter generation
+          if (tool.toolName === "saveDraftChapter") {
+            const args = tool.args;
+            return (
+              <div key={tool.toolCallId} className="mt-4">
+                <Task defaultOpen={false}>
+                  <TaskTrigger
+                    title={`Generating Chapter ${args?.chapterNumber || "..."}: ${args?.title || "Loading..."}`}
+                  />
+                  <TaskContent>
+                    <TaskItem>
+                      <span className="text-xs text-muted-foreground">
+                        Word count: {args?.wordCount || "..."} words
+                      </span>
+                    </TaskItem>
+                    <TaskItem>
+                      {isInProgress ? (
+                        <Shimmer className="text-xs text-muted-foreground">
+                          Saving draft...
+                        </Shimmer>
+                      ) : (
+                        <span className="text-xs text-green-600">
+                          Draft saved! Review in the preview panel
+                        </span>
+                      )}
+                    </TaskItem>
+                  </TaskContent>
+                </Task>
+              </div>
+            );
+          }
+
+          // Regular tool invocations
+          if (isInProgress) {
+            const loadingText = 
+              tool.toolName === "saveOutline" ? "Saving outline..." :
+              tool.toolName === "saveChapter" ? "Saving chapter..." :
+              tool.toolName === "saveCheckpoint" ? "Saving progress..." :
+              "Processing...";
+            
+            return (
+              <div
+                key={tool.toolCallId}
+                className="mt-2 rounded border bg-background p-2 text-xs"
+              >
+                <Shimmer className="text-muted-foreground">
+                  {loadingText}
+                </Shimmer>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={tool.toolCallId}
+              className="mt-2 rounded border bg-background p-2 text-xs"
+            >
+              <div className="font-semibold text-foreground">
+                {tool.toolName === "saveOutline" && "✓ Outline Saved"}
+                {tool.toolName === "saveChapter" && "✓ Chapter Saved"}
+                {tool.toolName === "saveCheckpoint" && "✓ Progress Saved"}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </MessageContent>
 
-      {/* Approval buttons */}
+      {/* Approval buttons - only show on last assistant message */}
       {message.role === "assistant" &&
         !isLoading &&
+        isLastMessage &&
+        message.status !== "streaming" &&
         (smoothText.toLowerCase().includes("approve") ||
           smoothText.toLowerCase().includes("would you like")) && (
           <div className="mt-2 flex gap-2">
@@ -264,6 +242,9 @@ export function ChatPanel({
   onApprove,
   onReject,
   onSendMessage,
+  loadMore,
+  canLoadMore,
+  isLoadingMore,
 }: ChatPanelProps) {
   return (
     <div className="flex h-full w-[380px] flex-col border-r bg-background">
@@ -286,22 +267,59 @@ export function ChatPanel({
       <div className="flex min-h-0 flex-1 flex-col">
         <Conversation className="h-[calc(100vh-350px)] overflow-auto">
           <ConversationContent className="gap-4 p-4 h-[calc(100vh-350px)] overflow-auto">
-            {messages.map((message: any) => (
-              <MessageWithSmoothing
-                key={message.id}
-                message={message}
-                isLoading={isLoading}
-                onApprove={onApprove}
-                onReject={onReject}
-                onSendMessage={onSendMessage}
-              />
-            ))}
-
-            {error && (
-              <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-xs text-destructive">
-                <p className="font-semibold">Error</p>
-                <p>{error.message}</p>
+            {/* Show centered spinner during initial load */}
+            {messages.length === 0 && isLoading ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Loading conversation...
+                  </p>
+                </div>
               </div>
+            ) : (
+              <>
+                {/* Load More Button - only show when messages exist */}
+                {messages.length > 0 && canLoadMore && loadMore && (
+                  <div className="flex justify-center pb-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadMore}
+                      disabled={isLoadingMore}
+                      className="h-8 text-xs"
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Load older messages"
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {messages.map((message: any, index: number) => (
+                  <MessageWithSmoothing
+                    key={message.id}
+                    message={message}
+                    isLoading={isLoading}
+                    onApprove={onApprove}
+                    onReject={onReject}
+                    onSendMessage={onSendMessage}
+                    isLastMessage={index === messages.length - 1}
+                  />
+                ))}
+
+                {error && (
+                  <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-xs text-destructive">
+                    <p className="font-semibold">Error</p>
+                    <p>{error.message}</p>
+                  </div>
+                )}
+              </>
             )}
           </ConversationContent>
 

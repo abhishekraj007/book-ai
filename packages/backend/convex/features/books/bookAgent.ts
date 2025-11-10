@@ -38,15 +38,21 @@ Your role is to guide the user through the book creation process step by step:
 1. First, propose a detailed outline with chapter titles and descriptions
 2. Ask the user to approve or modify the outline
 3. Once approved, generate chapters one at a time
-4. After each chapter, ask the user to review and approve
-5. Continue until all chapters are complete
+4. After generating each chapter, save it as a draft using saveDraftChapter tool
+5. Tell the user the chapter is ready for review in the preview panel (right side of screen)
+6. Wait for user feedback before proceeding to the next chapter
+7. Continue until all chapters are complete
 
 Current progress:
 - Chapters completed: ${bookContext.chapters?.length || 0}
 - Current step: ${bookContext.book.currentStep}
 
-Be conversational, professional, and ask for approval before proceeding with each major step.
-Use the provided tools to save outlines, chapters, and checkpoints.
+IMPORTANT INSTRUCTIONS:
+- When generating a chapter, write the FULL content and use saveDraftChapter tool to save it
+- Do NOT show the full chapter text in chat - just mention you're generating/have generated it
+- Tell the user to check the preview panel to review the chapter
+- Wait for user to approve or request changes before moving to next chapter
+- Be conversational and professional
 
 When proposing an outline, present it clearly with:
 - Total number of chapters
@@ -60,6 +66,45 @@ When generating a chapter, write engaging, high-quality content that:
 - Is appropriate for the target audience
 - Follows the outline structure`,
 
+    // Add contextHandler to inject chapter summaries into every prompt
+    contextHandler: async (ctx, args) => {
+      // Fetch completed chapters for context
+      const chapterSummaries = await ctx.runQuery(
+        internal.features.books.queries.getChapterSummaries,
+        { bookId }
+      );
+
+      // Build context message with completed chapters
+      const contextMessage =
+        chapterSummaries.completedCount > 0
+          ? {
+              role: "system" as const,
+              content: `Book Progress Summary:
+
+Completed Chapters (${chapterSummaries.completedCount}/${chapterSummaries.totalCount}):
+${chapterSummaries.summaries
+  .map(
+    (ch) =>
+      `- Chapter ${ch.chapterNumber}: "${ch.title}" (${ch.wordCount} words)
+  Preview: ${ch.preview}...`
+  )
+  .join("\n\n")}
+
+Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCount} chapters complete.`,
+            }
+          : null;
+
+      // Inject context message before recent messages
+      return [
+        ...args.search, // Search results (if any)
+        ...(contextMessage ? [contextMessage] : []), // Chapter context
+        ...args.recent, // Recent messages
+        ...args.inputMessages, // Current input messages
+        ...args.inputPrompt, // Current prompt
+        ...args.existingResponses, // Existing responses on same order
+      ];
+    },
+
     tools: {
       saveOutline: {
         description:
@@ -70,7 +115,7 @@ When generating a chapter, write engaging, high-quality content that:
           synopsis: z.string(),
           estimatedWordsPerChapter: z.number(),
         }),
-        execute: async (args, options) => {
+        execute: async (args: any, options: any) => {
           console.log("[TOOL] saveOutline called:", args);
           await ctx.runMutation(internal.features.books.mutations.saveOutline, {
             bookId,
@@ -84,23 +129,23 @@ When generating a chapter, write engaging, high-quality content that:
         },
       },
 
-      saveChapter: {
+      saveDraftChapter: {
         description:
-          "Save a completed chapter after user approval. Call this ONLY after the user explicitly approves the chapter content.",
+          "Save a generated chapter as a draft for user review. The draft will appear in the preview panel for the user to approve or reject. Do NOT ask for approval in chat - the user will review in the preview panel.",
         inputSchema: z.object({
           chapterNumber: z.number().min(1),
           title: z.string(),
           content: z.string().min(100),
           wordCount: z.number(),
         }),
-        execute: async (args, options) => {
+        execute: async (args: any, options: any) => {
           console.log(
-            "[TOOL] saveChapter called:",
+            "[TOOL] saveDraftChapter called:",
             args.chapterNumber,
             args.title
           );
           const result = await ctx.runMutation(
-            internal.features.books.mutations.saveChapter,
+            internal.features.books.mutations.saveDraftChapter,
             {
               bookId,
               ...args,
@@ -108,8 +153,8 @@ When generating a chapter, write engaging, high-quality content that:
           );
           return {
             success: true,
-            chapterId: result.chapterId,
-            message: `Chapter ${args.chapterNumber} "${args.title}" saved successfully.`,
+            draftId: result.draftId,
+            message: `Chapter ${args.chapterNumber} "${args.title}" saved as draft. Please review it in the preview panel and approve or request changes.`,
           };
         },
       },
@@ -120,7 +165,7 @@ When generating a chapter, write engaging, high-quality content that:
           step: z.string(),
           data: z.any(),
         }),
-        execute: async (args, options) => {
+        execute: async (args: any, options: any) => {
           console.log("[TOOL] saveCheckpoint called:", args);
           await ctx.runMutation(
             internal.features.books.mutations.saveCheckpoint,
@@ -138,4 +183,3 @@ When generating a chapter, write engaging, high-quality content that:
     maxSteps: 10,
   });
 }
-

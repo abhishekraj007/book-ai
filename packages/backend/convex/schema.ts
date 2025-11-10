@@ -134,6 +134,21 @@ export default defineSchema({
     .index("by_chapter", ["chapterId"])
     .index("by_chapter_version", ["chapterId", "versionNumber"]),
 
+  // Draft chapters table - temporary storage for generated chapters pending review
+  draftChapters: defineTable({
+    bookId: v.id("books"),
+    chapterNumber: v.number(),
+    title: v.string(),
+    content: v.string(), // Generated content (markdown)
+    wordCount: v.number(),
+    status: v.string(), // "generating", "pending_review", "approved", "rejected"
+    generatedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_book", ["bookId"])
+    .index("by_book_chapter", ["bookId", "chapterNumber"])
+    .index("by_book_status", ["bookId", "status"]),
+
   // Generation sessions table - supports resume/retry functionality
   generationSessions: defineTable({
     bookId: v.id("books"),

@@ -201,6 +201,51 @@ export const getResumeState = internalQuery({
 });
 
 // ============================================================================
+// Chapter Summaries Query (for Agent Context)
+// ============================================================================
+
+export const getChapterSummaries = internalQuery({
+  args: {
+    bookId: v.string(),
+  },
+  returns: v.object({
+    completedCount: v.number(),
+    totalCount: v.number(),
+    summaries: v.array(
+      v.object({
+        chapterNumber: v.number(),
+        title: v.string(),
+        wordCount: v.number(),
+        status: v.string(),
+        preview: v.string(), // First 200 chars of content
+      })
+    ),
+  }),
+  handler: async (ctx, { bookId }) => {
+    const chapters = await ctx.db
+      .query("chapters")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"chapters">))
+      .collect();
+
+    const completedChapters = chapters.filter(
+      (ch) => ch.status === "approved" && ch.content
+    );
+
+    return {
+      completedCount: completedChapters.length,
+      totalCount: chapters.length,
+      summaries: completedChapters.map((ch) => ({
+        chapterNumber: ch.chapterNumber,
+        title: ch.title,
+        wordCount: ch.wordCount,
+        status: ch.status,
+        preview: ch.content.substring(0, 200),
+      })),
+    };
+  },
+});
+
+// ============================================================================
 // Thread Messages Query (for Convex Agent)
 // ============================================================================
 
@@ -227,20 +272,38 @@ export const getThreadMessages = query({
     streams: v.optional(v.any()),
   }),
   handler: async (ctx, args) => {
-    // Fetch regular non-streaming messages
-    const paginated = await listUIMessages(ctx, components.agent, args);
+    try {
+      console.log("[QUERY] getThreadMessages called with threadId:", args.threadId);
+      
+      // Fetch regular non-streaming messages
+      const paginated = await listUIMessages(ctx, components.agent, args);
+      console.log("[QUERY] listUIMessages returned:", {
+        pageLength: paginated.page.length,
+        isDone: paginated.isDone,
+      });
 
-    // Fetch streaming deltas for real-time updates
-    // This returns messages that are currently being streamed (or undefined if none)
-    const streams = await syncStreams(ctx, components.agent, {
-      ...args,
-      // Include all streaming statuses for smooth UI transitions
-      includeStatuses: ["streaming", "aborted", "finished"],
-    });
+      // Fetch streaming deltas for real-time updates
+      // This returns messages that are currently being streamed (or undefined if none)
+      const streams = await syncStreams(ctx, components.agent, {
+        ...args,
+        // Include all streaming statuses for smooth UI transitions
+        includeStatuses: ["streaming", "aborted", "finished"],
+      });
+      console.log("[QUERY] syncStreams returned:", streams ? "data" : "null/undefined");
 
-    return {
-      ...paginated,
-      streams: streams ?? undefined, // Explicitly handle null/undefined for optional field
-    };
+      return {
+        ...paginated,
+        streams: streams ?? undefined, // Explicitly handle null/undefined for optional field
+      };
+    } catch (error) {
+      console.error("[QUERY] Error in getThreadMessages:", error);
+      // Return empty result on error instead of throwing
+      return {
+        page: [],
+        isDone: true,
+        continueCursor: "",
+        streams: undefined,
+      };
+    }
   },
 });

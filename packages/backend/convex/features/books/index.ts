@@ -1,15 +1,125 @@
-import { v } from 'convex/values';
-import { mutation, query } from '../../_generated/server';
+import { v } from "convex/values";
+import { mutation, query } from "../../_generated/server";
+import { internal } from "../../_generated/api";
 
 /**
  * Public Books API
- * 
+ *
  * These are the public-facing queries and mutations that the frontend uses.
  * They handle authentication and call internal functions.
  */
 
 // Export public actions for book generation
-export { startGeneration, continueGeneration } from './actions';
+export { startGeneration, continueGeneration } from "./actions";
+
+// Export public mutation for editing chapter content
+export const updateChapterContent = mutation({
+  args: {
+    chapterId: v.id("chapters"),
+    content: v.string(),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { chapterId, content }) => {
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) throw new Error("Not authenticated");
+
+    const chapter = await ctx.db.get(chapterId);
+    if (!chapter) throw new Error("Chapter not found");
+
+    const book = await ctx.db.get(chapter.bookId);
+    if (!book || book.userId !== user.subject) {
+      throw new Error("Not authorized");
+    }
+
+    // Save as new version
+    await ctx.runMutation(
+      internal.features.books.mutations.createChapterVersion,
+      {
+        chapterId: chapterId as string,
+        content,
+        changedBy: "user",
+        changeDescription: "Manual edit",
+      }
+    );
+
+    return { success: true };
+  },
+});
+
+// Export public mutations for draft management
+export const approveDraft = mutation({
+  args: {
+    draftId: v.id("draftChapters"),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { draftId }) => {
+    // Get authenticated user
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get draft
+    const draft = await ctx.db.get(draftId);
+    if (!draft) {
+      throw new Error("Draft not found");
+    }
+
+    // Verify ownership via book
+    const book = await ctx.db.get(draft.bookId);
+    if (!book || book.userId !== user.subject) {
+      throw new Error("Not authorized");
+    }
+
+    // Call internal mutation to approve
+    await ctx.runMutation(
+      internal.features.books.mutations.approveDraftChapter,
+      {
+        draftId: draftId as string,
+      }
+    );
+
+    return { success: true };
+  },
+});
+
+export const rejectDraft = mutation({
+  args: {
+    draftId: v.id("draftChapters"),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { draftId, reason }) => {
+    // Get authenticated user
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get draft
+    const draft = await ctx.db.get(draftId);
+    if (!draft) {
+      throw new Error("Draft not found");
+    }
+
+    // Verify ownership via book
+    const book = await ctx.db.get(draft.bookId);
+    if (!book || book.userId !== user.subject) {
+      throw new Error("Not authorized");
+    }
+
+    // Call internal mutation to reject
+    await ctx.runMutation(
+      internal.features.books.mutations.rejectDraftChapter,
+      {
+        draftId: draftId as string,
+        reason,
+      }
+    );
+
+    return { success: true };
+  },
+});
 
 // ============================================================================
 // Queries
@@ -19,7 +129,7 @@ export const listMyBooks = query({
   args: {},
   returns: v.array(
     v.object({
-      _id: v.id('books'),
+      _id: v.id("books"),
       title: v.string(),
       type: v.string(),
       status: v.string(),
@@ -40,9 +150,9 @@ export const listMyBooks = query({
 
     // Get all books for this user
     const books = await ctx.db
-      .query('books')
-      .withIndex('by_user', (q) => q.eq('userId', user.subject))
-      .order('desc')
+      .query("books")
+      .withIndex("by_user", (q) => q.eq("userId", user.subject))
+      .order("desc")
       .collect();
 
     return books.map((book) => ({
@@ -61,22 +171,23 @@ export const listMyBooks = query({
 
 export const getBook = query({
   args: {
-    bookId: v.id('books'),
+    bookId: v.id("books"),
   },
   returns: v.union(
     v.object({
-      _id: v.id('books'),
+      _id: v.id("books"),
       title: v.string(),
       type: v.string(),
       status: v.string(),
       currentStep: v.string(),
+      threadId: v.optional(v.string()), // Added threadId for conversation continuity
       metadata: v.any(),
       creditsUsed: v.number(),
       createdAt: v.number(),
       updatedAt: v.number(),
       chapters: v.array(
         v.object({
-          _id: v.id('chapters'),
+          _id: v.id("chapters"),
           chapterNumber: v.number(),
           title: v.string(),
           content: v.string(),
@@ -108,8 +219,8 @@ export const getBook = query({
 
     // Get chapters
     const chapters = await ctx.db
-      .query('chapters')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId))
+      .query("chapters")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId))
       .collect();
 
     return {
@@ -118,6 +229,7 @@ export const getBook = query({
       type: book.type,
       status: book.status,
       currentStep: book.currentStep,
+      threadId: book.threadId, // Include threadId for conversation continuity
       metadata: book.metadata,
       creditsUsed: book.creditsUsed,
       createdAt: book._creationTime,
@@ -136,6 +248,58 @@ export const getBook = query({
 });
 
 // ============================================================================
+// Draft Chapters Query
+// ============================================================================
+
+export const getDraftChapters = query({
+  args: {
+    bookId: v.id("books"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("draftChapters"),
+      chapterNumber: v.number(),
+      title: v.string(),
+      content: v.string(),
+      wordCount: v.number(),
+      status: v.string(),
+      generatedAt: v.number(),
+      updatedAt: v.number(),
+    })
+  ),
+  handler: async (ctx, { bookId }) => {
+    // Get authenticated user
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) {
+      return [];
+    }
+
+    // Get book to verify ownership
+    const book = await ctx.db.get(bookId);
+    if (!book || book.userId !== user.subject) {
+      return [];
+    }
+
+    // Get draft chapters
+    const drafts = await ctx.db
+      .query("draftChapters")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId))
+      .collect();
+
+    return drafts.map((draft) => ({
+      _id: draft._id,
+      chapterNumber: draft.chapterNumber,
+      title: draft.title,
+      content: draft.content,
+      wordCount: draft.wordCount,
+      status: draft.status,
+      generatedAt: draft.generatedAt,
+      updatedAt: draft.updatedAt,
+    }));
+  },
+});
+
+// ============================================================================
 // Mutations
 // ============================================================================
 
@@ -149,39 +313,39 @@ export const createBook = mutation({
     tone: v.optional(v.string()),
   },
   returns: v.object({
-    bookId: v.id('books'),
+    bookId: v.id("books"),
   }),
   handler: async (ctx, args) => {
     // Get authenticated user
     const user = await ctx.auth.getUserIdentity();
     if (!user) {
-      throw new Error('Not authenticated');
+      throw new Error("Not authenticated");
     }
 
     // Check user has credits
     const profile = await ctx.db
-      .query('profile')
-      .withIndex('by_auth_user_id', (q) => q.eq('authUserId', user.subject))
+      .query("profile")
+      .withIndex("by_auth_user_id", (q) => q.eq("authUserId", user.subject))
       .first();
 
     if (!profile) {
-      throw new Error('User profile not found');
+      throw new Error("User profile not found");
     }
 
     const credits = profile.credits ?? 0;
     if (credits < 10) {
       // Minimum 10 credits to start
-      throw new Error('Insufficient credits. Minimum 10 credits required.');
+      throw new Error("Insufficient credits. Minimum 10 credits required.");
     }
 
     // Create book
     const now = Date.now();
-    const bookId = await ctx.db.insert('books', {
+    const bookId = await ctx.db.insert("books", {
       userId: user.subject,
       title: args.title,
       type: args.type,
-      status: 'draft',
-      currentStep: 'initialization',
+      status: "draft",
+      currentStep: "initialization",
       metadata: {
         genre: args.genre,
         targetAudience: args.targetAudience,
@@ -199,38 +363,38 @@ export const createBook = mutation({
 
 export const deleteBook = mutation({
   args: {
-    bookId: v.id('books'),
+    bookId: v.id("books"),
   },
   returns: v.object({ success: v.boolean() }),
   handler: async (ctx, { bookId }) => {
     // Get authenticated user
     const user = await ctx.auth.getUserIdentity();
     if (!user) {
-      throw new Error('Not authenticated');
+      throw new Error("Not authenticated");
     }
 
     // Get book
     const book = await ctx.db.get(bookId);
     if (!book) {
-      throw new Error('Book not found');
+      throw new Error("Book not found");
     }
 
     // Verify ownership
     if (book.userId !== user.subject) {
-      throw new Error('Not authorized');
+      throw new Error("Not authorized");
     }
 
     // Delete chapters and versions
     const chapters = await ctx.db
-      .query('chapters')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId))
+      .query("chapters")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId))
       .collect();
 
     for (const chapter of chapters) {
       // Delete versions
       const versions = await ctx.db
-        .query('chapterVersions')
-        .withIndex('by_chapter', (q) => q.eq('chapterId', chapter._id))
+        .query("chapterVersions")
+        .withIndex("by_chapter", (q) => q.eq("chapterId", chapter._id))
         .collect();
 
       for (const version of versions) {
@@ -243,8 +407,8 @@ export const deleteBook = mutation({
 
     // Delete generation session
     const session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId))
       .first();
 
     if (session) {
@@ -264,7 +428,7 @@ export const deleteBook = mutation({
 
 export const getResumeState = query({
   args: {
-    bookId: v.id('books'),
+    bookId: v.id("books"),
   },
   returns: v.union(
     v.object({
@@ -293,16 +457,16 @@ export const getResumeState = query({
     }
 
     const session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId))
       .first();
 
-    if (!session || session.status === 'completed') {
+    if (!session || session.status === "completed") {
       return null;
     }
 
     return {
-      canResume: session.status === 'paused' || session.status === 'failed',
+      canResume: session.status === "paused" || session.status === "failed",
       lastCheckpoint: session.lastCheckpoint,
       messages: session.messages,
       retryCount: session.retryCount,
@@ -312,30 +476,30 @@ export const getResumeState = query({
 
 export const retryGeneration = mutation({
   args: {
-    bookId: v.id('books'),
+    bookId: v.id("books"),
   },
   returns: v.object({ success: v.boolean() }),
   handler: async (ctx, { bookId }) => {
     // Get authenticated user
     const user = await ctx.auth.getUserIdentity();
     if (!user) {
-      throw new Error('Not authenticated');
+      throw new Error("Not authenticated");
     }
 
     // Verify book ownership
     const book = await ctx.db.get(bookId);
     if (!book || book.userId !== user.subject) {
-      throw new Error('Not authorized');
+      throw new Error("Not authorized");
     }
 
     // Find the session
     const session = await ctx.db
-      .query('generationSessions')
-      .withIndex('by_book', (q) => q.eq('bookId', bookId))
+      .query("generationSessions")
+      .withIndex("by_book", (q) => q.eq("bookId", bookId))
       .first();
 
     if (!session) {
-      throw new Error('No generation session found');
+      throw new Error("No generation session found");
     }
 
     // Increment retry count
@@ -343,19 +507,19 @@ export const retryGeneration = mutation({
 
     // Max 3 retries
     if (newRetryCount > 3) {
-      throw new Error('Maximum retry attempts reached');
+      throw new Error("Maximum retry attempts reached");
     }
 
     // Update session to in_progress
     await ctx.db.patch(session._id, {
-      status: 'in_progress',
+      status: "in_progress",
       retryCount: newRetryCount,
       lastActiveAt: Date.now(),
     });
 
     // Update book status
     await ctx.db.patch(bookId, {
-      status: 'generating',
+      status: "generating",
       updatedAt: Date.now(),
     });
 
@@ -369,11 +533,11 @@ export const retryGeneration = mutation({
 
 export const getVersionHistory = query({
   args: {
-    chapterId: v.id('chapters'),
+    chapterId: v.id("chapters"),
   },
   returns: v.array(
     v.object({
-      _id: v.id('chapterVersions'),
+      _id: v.id("chapterVersions"),
       versionNumber: v.number(),
       content: v.string(),
       changedBy: v.string(),
@@ -401,9 +565,9 @@ export const getVersionHistory = query({
     }
 
     const versions = await ctx.db
-      .query('chapterVersions')
-      .withIndex('by_chapter', (q) => q.eq('chapterId', chapterId))
-      .order('desc') // Most recent first
+      .query("chapterVersions")
+      .withIndex("by_chapter", (q) => q.eq("chapterId", chapterId))
+      .order("desc") // Most recent first
       .collect();
 
     return versions.map((v) => ({
@@ -419,7 +583,7 @@ export const getVersionHistory = query({
 
 export const revertToVersion = mutation({
   args: {
-    chapterId: v.id('chapters'),
+    chapterId: v.id("chapters"),
     versionNumber: v.number(),
   },
   returns: v.object({ success: v.boolean(), newVersionNumber: v.number() }),
@@ -427,42 +591,42 @@ export const revertToVersion = mutation({
     // Get authenticated user
     const user = await ctx.auth.getUserIdentity();
     if (!user) {
-      throw new Error('Not authenticated');
+      throw new Error("Not authenticated");
     }
 
     // Get chapter
     const chapter = await ctx.db.get(chapterId);
     if (!chapter) {
-      throw new Error('Chapter not found');
+      throw new Error("Chapter not found");
     }
 
     // Get book to verify ownership
     const book = await ctx.db.get(chapter.bookId);
     if (!book || book.userId !== user.subject) {
-      throw new Error('Not authorized');
+      throw new Error("Not authorized");
     }
 
     // Get the version to revert to
     const version = await ctx.db
-      .query('chapterVersions')
-      .withIndex('by_chapter_version', (q) =>
-        q.eq('chapterId', chapterId).eq('versionNumber', versionNumber)
+      .query("chapterVersions")
+      .withIndex("by_chapter_version", (q) =>
+        q.eq("chapterId", chapterId).eq("versionNumber", versionNumber)
       )
       .first();
 
     if (!version) {
-      throw new Error('Version not found');
+      throw new Error("Version not found");
     }
 
     const newVersion = chapter.currentVersion + 1;
     const now = Date.now();
 
     // Create new version (marking as revert)
-    await ctx.db.insert('chapterVersions', {
+    await ctx.db.insert("chapterVersions", {
       chapterId,
       versionNumber: newVersion,
       content: version.content,
-      changedBy: 'user',
+      changedBy: "user",
       changeDescription: `Reverted to version ${versionNumber}`,
       createdAt: now,
     });
