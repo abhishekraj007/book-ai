@@ -126,6 +126,8 @@ STRUCTURE DESIGN:
   * Estimated words per chapter
 - Present structure and get approval
 - Use saveStructure tool after approval
+- AFTER saving structure, automatically call generateBookTitle to create a compelling title
+- The agent should generate ONE creative title based on the book's content - user can edit it later
 
 GENERATION:
 - CHECK if generation mode is already set (see CURRENT STATE below).
@@ -363,6 +365,33 @@ Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCo
             success: true,
             message:
               "Structure saved successfully. Ready to start chapter generation.",
+          };
+        },
+      },
+
+      generateBookTitle: {
+        description:
+          "Generate a creative, compelling book title based on the foundation and structure. Call this AFTER saveStructure but BEFORE starting chapter generation. This runs asynchronously and won't block the next steps. The agent should automatically create ONE suitable title - user can edit it later if needed.",
+        inputSchema: z.object({
+          title: z
+            .string()
+            .describe(
+              "A creative, compelling title that captures the essence of the book based on its synopsis, themes, and genre"
+            ),
+        }),
+        execute: async (args: any) => {
+          console.log("[TOOL] generateBookTitle called:", args.title);
+          // Save the generated title
+          await ctx.runMutation(
+            internal.features.books.mutations.saveBookTitle,
+            {
+              bookId,
+              title: args.title,
+            }
+          );
+          return {
+            success: true,
+            message: `Book title set to "${args.title}". Continuing with chapter generation.`,
           };
         },
       },

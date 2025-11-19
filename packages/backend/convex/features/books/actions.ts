@@ -124,11 +124,11 @@ export const continueGeneration = action({
     // Determine max steps based on phase and mode
     // Foundation phase: 1 step (User answer -> Agent asks next question -> STOP)
     // Auto mode: 20 steps (Continuous generation)
-    // Manual mode: 5 steps (Generate chapter -> Ask for confirmation)
+    // Manual mode: 2 steps (saveChapter + askQuestion -> STOP)
     const generationMode = (bookContext.book as any).generationMode;
     const isAutoMode = generationMode === "auto";
     const isFoundation = bookContext.book.currentStep === "foundation";
-    const maxSteps = isFoundation ? 1 : isAutoMode ? 20 : 5;
+    const maxSteps = isFoundation ? 1 : isAutoMode ? 20 : 2;
 
     // Generate response with real-time streaming
     await (agent as any).streamText(

@@ -120,19 +120,6 @@ export function PreviewPanel({
                   }
                 </div>
               ))}
-
-              {isLoading && (
-                <div className="space-y-3 opacity-50">
-                  <h2 className="text-3xl font-bold">
-                    Chapter {chapters.length + 1}: Generating...
-                  </h2>
-                  <div className="space-y-3">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-2/3" />
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>

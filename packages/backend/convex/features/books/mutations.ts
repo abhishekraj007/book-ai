@@ -111,7 +111,7 @@ export const saveStructure = internalMutation({
   returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const { bookId, ...structure } = args;
-    
+
     // Save structure to book
     await ctx.db.patch(bookId as Id<"books">, {
       structure,
@@ -175,6 +175,25 @@ export const updateBookMetadata = internalMutation({
         ...book.metadata,
         ...metadata,
       },
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+// ============================================================================
+// Book Title Generation Mutation
+// ============================================================================
+
+export const saveBookTitle = internalMutation({
+  args: {
+    bookId: v.string(),
+    title: v.string(),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { bookId, title }) => {
+    await ctx.db.patch(bookId as Id<"books">, {
+      title,
       updatedAt: Date.now(),
     });
     return { success: true };
@@ -265,7 +284,10 @@ export const saveChapter = internalMutation({
       versionNumber: newVersion,
       content,
       changedBy: "ai",
-      changeDescription: chapter.currentVersion === 0 ? "Initial generation" : "Chapter revision",
+      changeDescription:
+        chapter.currentVersion === 0
+          ? "Initial generation"
+          : "Chapter revision",
       createdAt: now,
     });
 
