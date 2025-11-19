@@ -140,6 +140,14 @@ CURRENT PHASE: AUTO GENERATION MODE
 ⚠️ AUTO MODE ACTIVE ⚠️
 You MUST generate ALL chapters in one continuous sequence without stopping!
 
+🚨 CRITICAL CONTENT FORMATTING RULES 🚨
+When generating chapter content:
+- DO NOT write "Chapter X: [Title]" at the beginning of the content
+- DO NOT include the chapter heading/title in the content field
+- START DIRECTLY with the chapter text (e.g., "If Expressionism distorted...")
+- The title goes in the 'title' field ONLY, not in the 'content' field
+- Example: title="Fractured Reality", content="If Expressionism distorted the world..."
+
 PROCESS:
 - Generate Chapter ${completedChapters + 1} using saveChapter tool
 - IMMEDIATELY generate Chapter ${completedChapters + 2} in the SAME turn
@@ -179,6 +187,14 @@ CURRENT PHASE: MANUAL GENERATION MODE
 
 ⚠️ MANUAL MODE ACTIVE ⚠️
 Generate one chapter at a time and ask user to continue.
+
+🚨 CRITICAL CONTENT FORMATTING RULES 🚨
+When generating chapter content:
+- DO NOT write "Chapter X: [Title]" at the beginning of the content
+- DO NOT include the chapter heading/title in the content field
+- START DIRECTLY with the chapter text (e.g., "If Expressionism distorted...")
+- The title goes in the 'title' field ONLY, not in the 'content' field
+- Example: title="Fractured Reality", content="If Expressionism distorted the world..."
 
 PROCESS:
 ${processSteps}
@@ -500,7 +516,14 @@ Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCo
           );
 
           const isAutoMode = args.mode === "auto";
-          const structure = (bookContext.book as any).structure;
+
+          // Fetch fresh book data from database to get the structure
+          // (bookContext is stale and doesn't have the structure yet)
+          const freshBook = await ctx.runQuery(
+            internal.features.books.queries.getBookContext,
+            { bookId, includeChapters: false }
+          );
+          const structure = (freshBook.book as any).structure;
           const totalChapters = structure?.chapterCount || 0;
 
           return {
@@ -515,11 +538,18 @@ Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCo
 
       saveChapter: {
         description:
-          "Save a generated chapter. Chapters are auto-approved and immediately available in the preview panel. User can edit them later if needed. CRITICAL: In AUTO mode, after calling this tool, you MUST IMMEDIATELY call it again for the next chapter in the SAME turn. DO NOT STOP until all chapters are generated. In MANUAL mode, ask user to continue.",
+          "Save a generated chapter. Chapters are auto-approved and immediately available in the preview panel. User can edit them later if needed. CRITICAL: In AUTO mode, after calling this tool, you MUST IMMEDIATELY call it again for the next chapter in the SAME turn. DO NOT STOP until all chapters are generated. In MANUAL mode, ask user to continue. IMPORTANT: Do NOT include the chapter title/heading in the content field - only include the actual chapter text. The title is stored separately.",
         inputSchema: z.object({
           chapterNumber: z.number().min(1),
-          title: z.string(),
-          content: z.string().min(100),
+          title: z
+            .string()
+            .describe("The chapter title WITHOUT 'Chapter X:' prefix"),
+          content: z
+            .string()
+            .min(100)
+            .describe(
+              "The chapter content WITHOUT the chapter title/heading at the start. Start directly with the chapter text."
+            ),
           wordCount: z.number(),
         }),
         execute: async (args: any) => {

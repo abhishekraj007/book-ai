@@ -224,7 +224,7 @@ export const getChapterSummaries = internalQuery({
   handler: async (ctx, { bookId }) => {
     const chapters = await ctx.db
       .query("chapters")
-      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"chapters">))
+      .withIndex("by_book", (q) => q.eq("bookId", bookId as Id<"books">))
       .collect();
 
     const completedChapters = chapters.filter(
@@ -270,11 +270,17 @@ export const getThreadMessages = query({
     continueCursor: v.string(),
     // Streaming deltas for real-time updates (optional when no streams are active)
     streams: v.optional(v.any()),
+    // Pagination-related fields from listUIMessages (can be string, null, or undefined)
+    pageStatus: v.optional(v.union(v.string(), v.null())),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
     try {
-      console.log("[QUERY] getThreadMessages called with threadId:", args.threadId);
-      
+      console.log(
+        "[QUERY] getThreadMessages called with threadId:",
+        args.threadId
+      );
+
       // Fetch regular non-streaming messages
       const paginated = await listUIMessages(ctx, components.agent, args);
       console.log("[QUERY] listUIMessages returned:", {
@@ -289,7 +295,10 @@ export const getThreadMessages = query({
         // Include all streaming statuses for smooth UI transitions
         includeStatuses: ["streaming", "aborted", "finished"],
       });
-      console.log("[QUERY] syncStreams returned:", streams ? "data" : "null/undefined");
+      console.log(
+        "[QUERY] syncStreams returned:",
+        streams ? "data" : "null/undefined"
+      );
 
       return {
         ...paginated,
