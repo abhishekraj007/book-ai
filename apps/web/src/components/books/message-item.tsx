@@ -15,11 +15,6 @@ import { getContextualSuggestions } from "@/utils/chat-utils";
 import { Markdown } from "@/components/ui/markdown";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
-import {
-  Reasoning,
-  ReasoningTrigger,
-  ReasoningContent,
-} from "@/components/ai-elements/reasoning";
 
 interface MessageItemProps {
   message: any;
@@ -71,7 +66,7 @@ export function MessageItem({
           "rounded-lg p-3 text-sm",
           message.role === "user"
             ? "bg-primary text-primary-foreground"
-            : "bg-muted"
+            : "bg-muted/30"
         )}
       >
         {/* Render smoothed text - use Markdown for assistant, plain text for user */}
@@ -83,42 +78,59 @@ export function MessageItem({
           <div className="whitespace-pre-wrap">{smoothText}</div>
         )}
 
-        {/* Show reasoning steps - detect step-start parts */}
-        {(message.status === "streaming" ||
-          (message as any).reasoning ||
-          (message as any).parts?.some(
-            (p: any) => p.type === "step-start"
-          )) && (
-          <Reasoning isStreaming={message.status === "streaming"}>
-            <ReasoningTrigger />
-            <ReasoningContent>
+        {/* Show shimmer with contextual message when agent is actively working */}
+        {message.status === "streaming" && (
+          <div className="mt-2">
+            <Shimmer>
               {(() => {
-                const contentParts = [];
+                const parts = (message as any).parts || [];
 
-                // Add message-level reasoning if available
-                if ((message as any).reasoning) {
-                  contentParts.push((message as any).reasoning);
+                // Build contextual message from parts
+                let stepCount = 0;
+                for (const part of parts) {
+                  if (part.type === "step-start") {
+                    stepCount++;
+
+                    // Look ahead to see if there's a tool call coming
+                    const nextPartIndex = parts.indexOf(part) + 1;
+                    const nextPart = parts[nextPartIndex];
+
+                    if (nextPart?.type?.startsWith("tool-")) {
+                      // We have a tool call - show specific action
+                      const toolType = nextPart.type.replace("tool-", "");
+                      const toolMessages: Record<string, string> = {
+                        askQuestion: "Preparing your next question...",
+                        saveFoundation: "Saving book foundation...",
+                        saveStructure: "Creating book structure...",
+                        generateBookTitle: "Generating book title...",
+                        setGenerationMode: "Setting generation mode...",
+                        saveChapter: "Writing chapter content...",
+                        saveStoryIdeas: "Creating story ideas...",
+                        updateBookMetadata: "Updating book details...",
+                        saveCheckpoint: "Saving progress...",
+                      };
+
+                      return (
+                        toolMessages[toolType] || `Processing ${toolType}...`
+                      );
+                    } else {
+                      // Check if agent is thinking (has thoughts token count)
+                      const hasThoughts =
+                        part.callProviderMetadata?.google?.usageMetadata
+                          ?.thoughtsTokenCount > 0;
+
+                      if (hasThoughts) {
+                        return "Thinking...";
+                      }
+                    }
+                  }
                 }
 
-                // Add step-by-step reasoning from step-start parts
-                const stepParts = (message as any).parts?.filter(
-                  (p: any) => p.type === "step-start"
-                );
-
-                if (stepParts && stepParts.length > 0) {
-                  const stepsText = stepParts
-                    .map(
-                      (_: any, idx: number) =>
-                        `• Step ${idx + 1} in progress...`
-                    )
-                    .join("\n");
-                  contentParts.push(stepsText);
-                }
-
-                return contentParts.join("\n\n");
+                // Default message
+                return stepCount > 0 ? "Generating..." : "Thinking...";
               })()}
-            </ReasoningContent>
-          </Reasoning>
+            </Shimmer>
+          </div>
         )}
 
         {(message as any).parts?.map((part: any, idx: number) => {

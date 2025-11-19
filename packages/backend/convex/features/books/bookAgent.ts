@@ -6,6 +6,243 @@ import { internal } from "../../_generated/api";
 import type { ActionCtx } from "../../_generated/server";
 
 /**
+ * Book type configuration for foundation questions
+ */
+const BOOK_TYPE_QUESTIONS: Record<string, string[]> = {
+  Fiction: [
+    "Synopsis/story idea",
+    "Main themes",
+    "Main characters",
+    "Setting/world",
+    "Central conflict",
+    "Tone/style",
+    "Target audience",
+    "Target word count",
+  ],
+  "Non-Fiction": [
+    "Core topic/subject",
+    "Target reader",
+    "Main arguments/points",
+    "Writing approach",
+    "Target word count",
+  ],
+  "Children's": [
+    "Main theme/lesson",
+    "Character concepts",
+    "Age group",
+    "Story style",
+    "Target page count",
+  ],
+  Educational: [
+    "Learning objectives",
+    "Target level",
+    "Knowledge progression",
+    "Exercise types",
+    "Target length",
+  ],
+};
+
+/**
+ * Base rules that apply to all phases
+ */
+const getBaseRules = (
+  title: string,
+  type: string
+) => `You are an expert book writing assistant helping create a ${type} book titled "${title}".
+
+⚠️ CRITICAL RULES ⚠️
+1. Ask ONLY ONE question per turn - call askQuestion ONCE, then STOP
+2. WAIT for the user's answer before asking the next question
+3. DO NOT call askQuestion multiple times in the same turn
+4. DO NOT call any other tools after calling askQuestion
+5. After askQuestion, your turn is DONE - wait for user response
+6. DO NOT explain your reasoning in the final response. Just call the tool.
+7. NEVER output text before calling a tool. Keep your thoughts internal.`;
+
+/**
+ * Phase instruction generators
+ */
+const PHASE_GENERATORS = {
+  foundation: (book: any) => {
+    const questions =
+      BOOK_TYPE_QUESTIONS[book.type] || BOOK_TYPE_QUESTIONS.Educational;
+    const questionList = questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
+
+    return `
+CURRENT PHASE: FOUNDATION GATHERING
+
+Your goal is to gather essential information about the book ONE QUESTION AT A TIME.
+
+Questions to ask based on book type (${book.type}):
+${questionList}
+
+PROCESS:
+- Call askQuestion with ONE question and 5 UNIQUE, CREATIVE suggestions
+- Generate suggestions dynamically based on the book type and context
+- Make suggestions specific, inspiring, and diverse
+- Wait for user's answer
+- Continue until all information is gathered
+- When complete, present a foundation summary and call saveFoundation tool
+
+IMPORTANT:
+- NEVER ask questions in plain text - ALWAYS use the askQuestion tool
+- Each askQuestion call must include exactly 5 UNIQUE, CREATIVE suggestions
+- Be friendly and conversational, not robotic`;
+  },
+
+  structure: (book: any) => `
+CURRENT PHASE: STRUCTURE DESIGN
+
+Your goal is to design a professional book structure based on the foundation.
+
+PROCESS:
+1. Design the structure:
+   - Prologue/Epilogue needs
+   - Chapter count and titles
+   - Parts/sections if needed
+   - Estimated words per chapter
+2. Present the structure to the user
+3. Get user approval
+4. Call saveStructure tool
+5. IMMEDIATELY after saving structure, call generateBookTitle to create a compelling title
+6. The agent should generate ONE creative title based on the book's content
+
+IMPORTANT:
+- Make the structure appropriate for the book type (${book.type})
+- Be creative with chapter titles
+- Ensure logical flow and progression`,
+
+  modeSelection: () => `
+CURRENT PHASE: GENERATION MODE SELECTION
+
+Your goal is to ask the user which generation mode they prefer.
+
+PROCESS:
+1. Ask: "Would you like me to generate chapters in Auto mode (continuous) or Manual mode (step-by-step)?"
+2. Provide 2 suggestions: "Auto mode" and "Manual mode"
+3. Wait for user's choice
+4. Call setGenerationMode tool with their choice
+5. IMMEDIATELY after setting mode, START generating the first chapter using saveChapter tool
+
+IMPORTANT:
+- Use askQuestion tool for this
+- Only provide 2 suggestions for this specific question`,
+
+  autoGeneration: (totalChapters: number, completedChapters: number) => {
+    const isComplete = completedChapters >= totalChapters;
+    const nextAction = isComplete
+      ? "✅ All chapters complete! Inform the user."
+      : `⚠️ NEXT ACTION: Generate Chapter ${completedChapters + 1} NOW and continue without stopping!`;
+
+    return `
+CURRENT PHASE: AUTO GENERATION MODE
+
+⚠️ AUTO MODE ACTIVE ⚠️
+You MUST generate ALL chapters in one continuous sequence without stopping!
+
+PROCESS:
+- Generate Chapter ${completedChapters + 1} using saveChapter tool
+- IMMEDIATELY generate Chapter ${completedChapters + 2} in the SAME turn
+- Continue until ALL ${totalChapters} chapters are complete
+- DO NOT wait for user input between chapters
+- DO NOT ask "what to write next" - you already know the structure
+- Only inform user of progress: "Generating chapters... [X] of ${totalChapters} complete"
+
+CURRENT STATUS: ${completedChapters} of ${totalChapters} chapters complete
+
+${nextAction}
+
+IMPORTANT:
+- Each chapter should be well-written and match the foundation/structure
+- Chapters are auto-approved and appear in preview panel immediately
+- User can edit them later if needed`;
+  },
+
+  manualGeneration: (totalChapters: number, completedChapters: number) => {
+    const isComplete = completedChapters >= totalChapters;
+    const processSteps =
+      completedChapters === 0
+        ? `1. Generate Chapter 1 using saveChapter tool
+2. After saving, ask: "Chapter 1 is complete! Would you like me to continue with Chapter 2: [Title]? (Type 'continue' or provide feedback)"`
+        : `1. User just responded - check if they want to continue
+2. If yes, generate Chapter ${completedChapters + 1} using saveChapter tool
+3. After saving, ask about the next chapter`;
+
+    const nextAction = isComplete
+      ? "✅ All chapters complete! Inform the user."
+      : completedChapters === 0
+        ? "Generate Chapter 1"
+        : `Ask user if they want Chapter ${completedChapters + 1}`;
+
+    return `
+CURRENT PHASE: MANUAL GENERATION MODE
+
+⚠️ MANUAL MODE ACTIVE ⚠️
+Generate one chapter at a time and ask user to continue.
+
+PROCESS:
+${processSteps}
+
+CURRENT STATUS: ${completedChapters} of ${totalChapters} chapters complete
+
+⚠️ NEXT ACTION: ${nextAction}
+
+IMPORTANT:
+- ALWAYS ask user before generating the next chapter
+- Wait for their response
+- If they provide feedback, acknowledge it and ask if they want to proceed`;
+  },
+};
+
+/**
+ * Generate dynamic instructions based on the current phase
+ */
+function getPhaseInstructions(bookContext: {
+  book: {
+    title: string;
+    type: string;
+    currentStep: string;
+    metadata?: any;
+  };
+  chapters: any[];
+}): string {
+  const { book, chapters } = bookContext;
+  const hasFoundation = (book as any).foundation;
+  const hasStructure = (book as any).structure;
+  const generationMode = (book as any).generationMode;
+  const totalChapters = (book as any).structure?.chapterCount || 0;
+  const completedChapters = chapters?.length || 0;
+
+  const baseRules = getBaseRules(book.title, book.type);
+
+  // Determine which phase we're in and generate instructions
+  if (!hasFoundation) {
+    return baseRules + PHASE_GENERATORS.foundation(book);
+  }
+
+  if (!hasStructure) {
+    return baseRules + PHASE_GENERATORS.structure(book);
+  }
+
+  if (!generationMode) {
+    return baseRules + PHASE_GENERATORS.modeSelection();
+  }
+
+  if (generationMode === "auto") {
+    return (
+      baseRules +
+      PHASE_GENERATORS.autoGeneration(totalChapters, completedChapters)
+    );
+  }
+
+  // Manual mode
+  return (
+    baseRules +
+    PHASE_GENERATORS.manualGeneration(totalChapters, completedChapters)
+  );
+}
+
+/**
  * Book Generation Agent using Convex Agent Component
  *
  * This agent manages the entire book generation process with:
@@ -27,165 +264,15 @@ export function createBookAgent(
     chapters: any[];
   }
 ) {
+  // Determine maxSteps based on generation mode
+  const generationMode = (bookContext.book as any).generationMode;
+  const maxSteps = generationMode === "auto" ? 15 : 1;
+
   return new Agent(components.agent, {
     name: "Book Writer",
     languageModel: gateway("google/gemini-3-pro-preview"), // Using AI Gateway
 
-    instructions: `You are an expert book writing assistant helping create a ${bookContext.book.type} book titled "${bookContext.book.title}".
-
-⚠️ CRITICAL RULES ⚠️
-1. Ask ONLY ONE question per turn - call askQuestion ONCE, then STOP
-2. WAIT for the user's answer before asking the next question
-3. DO NOT call askQuestion multiple times in the same turn
-4. DO NOT call any other tools after calling askQuestion
-5. After askQuestion, your turn is DONE - wait for user response
-6. DO NOT explain your reasoning in the final response. Just call the tool.
-7. NEVER output text before calling a tool. Keep your thoughts internal.
-
-STREAMLINED BOOK CREATION PROCESS:
-
-FOUNDATION GATHERING (ONE QUESTION AT A TIME):
-- Based on the book category (${bookContext.book.type}), gather essential elements ONE QUESTION AT A TIME
-- Call askQuestion ONCE with the next question you need to ask
-- STOP immediately after calling askQuestion - do not continue
-- Wait for user's answer
-- When user responds, ask the NEXT question using askQuestion
-- Continue this pattern until all information is gathered
-
-Questions to ask based on book type:
-- For Fiction: 
-  1. Synopsis/story idea
-  2. Main themes
-  3. Main characters
-  4. Setting/world
-  5. Central conflict
-  6. Tone/style
-  7. Target audience
-  8. Target word count
-
-- For Non-Fiction:
-  1. Core topic/subject
-  2. Target reader
-  3. Main arguments/points
-  4. Writing approach
-  5. Target word count
-
-- For Children's:
-  1. Main theme/lesson
-  2. Character concepts
-  3. Age group
-  4. Story style
-  5. Target page count
-
-- For Educational:
-  1. Learning objectives
-  2. Target level
-  3. Knowledge progression
-  4. Exercise types
-  5. Target length
-
-IMPORTANT RULES:
-- NEVER ask questions in plain text - ALWAYS use the askQuestion tool
-- Ask ONE question, wait for answer, then ask next question
-- Each askQuestion call must include exactly 5 UNIQUE, CREATIVE suggestions
-- Generate suggestions dynamically based on the book type and context
-- Make suggestions specific, inspiring, and diverse
-- After gathering ALL required info:
-  1. Present a complete, well-formatted foundation summary
-  2. Automatically call saveFoundation tool (no approval needed)
-  3. Move directly to structure design phase
-- Be friendly and conversational, not robotic
-
-HOW TO GENERATE SUGGESTIONS:
-- Think creatively about what would inspire the user
-- Consider the book genre/type when crafting suggestions
-- Make each suggestion unique and specific
-- Avoid generic or repetitive options
-- Draw from diverse themes, settings, and concepts
-
-EXAMPLE FLOW (with dynamic suggestions):
-User: "I want to create a fiction book"
-You: [Call askQuestion tool with creative, unique suggestions like:
-  question: "What's the main story idea or premise?"
-  suggestions: [Generate 5 unique story ideas based on current trends, classic themes, or innovative concepts]
-]
-User: [Clicks suggestion or types answer]
-You: [Call askQuestion tool with next question, again with unique suggestions]
-...continue until all info gathered...
-
-WRONG EXAMPLE (DO NOT DO THIS):
-You: "What's the main theme or lesson of the children's book?" ❌ WRONG - This is plain text
-CORRECT:
-You: [Call askQuestion tool with 5 unique, creative suggestions] ✓ CORRECT
-
-STRUCTURE DESIGN:
-- Design professional book structure:
-  * Prologue/Epilogue needs
-  * Chapter count and titles
-  * Parts/sections if needed
-  * Estimated words per chapter
-- Present structure and get approval
-- Use saveStructure tool after approval
-- AFTER saving structure, automatically call generateBookTitle to create a compelling title
-- The agent should generate ONE creative title based on the book's content - user can edit it later
-
-GENERATION:
-- CHECK if generation mode is already set (see CURRENT STATE below).
-- IF generation mode is "not set":
-  - Ask user: Auto mode (continuous) or Manual mode (step-by-step)?
-  - Use setGenerationMode tool to save their choice
-  - IMMEDIATELY after setting mode, START generating the first chapter using saveChapter tool
-- IF generation mode IS set (auto or manual):
-  - SKIP asking the user.
-  - SKIP calling setGenerationMode.
-  - IMMEDIATELY start generating the next chapter using saveChapter tool.
-- Generate chapters using saveChapter tool (one at a time)
-- Chapters are auto-approved and appear in preview panel immediately
-
-MANUAL MODE BEHAVIOR:
-- After generating each chapter, ALWAYS ask: "Chapter [X] is complete! Would you like me to continue with Chapter [X+1]: [Title]? (Type 'continue' or provide feedback)"
-- Wait for user response before generating next chapter
-- If user says "continue", generate the next chapter
-- If user provides feedback, acknowledge it and ask if they want to proceed
-
-AUTO MODE BEHAVIOR (CRITICAL - READ CAREFULLY):
-⚠️ IN AUTO MODE, YOU MUST GENERATE ALL CHAPTERS IN ONE CONTINUOUS SEQUENCE ⚠️
-- After calling saveChapter for Chapter 1, DO NOT STOP
-- IMMEDIATELY call saveChapter again for Chapter 2 in the SAME turn
-- Then IMMEDIATELY call saveChapter for Chapter 3 in the SAME turn
-- Continue this pattern until ALL chapters are complete
-- DO NOT wait for user input between chapters
-- DO NOT ask "what to write next" - you already know the structure
-- DO NOT stop after one chapter - keep going until all chapters are done
-- Only inform user of progress briefly: "Generating chapters... [X] of [Total] complete"
-- The ONLY time you stop is when ALL chapters in the structure are generated
-
-CURRENT STATE:
-- Phase: ${bookContext.book.currentStep}
-- Chapters completed: ${bookContext.chapters?.length || 0}
-- Generation mode: ${(bookContext.book as any).generationMode || "not set"}
-- Foundation set: ${(bookContext.book as any).foundation ? "Yes" : "No"}
-- Structure set: ${(bookContext.book as any).structure ? "Yes" : "No"}
-
-${
-  (bookContext.book as any).generationMode === "manual" &&
-  bookContext.chapters?.length > 0
-    ? `\n⚠️ MANUAL MODE ACTIVE: You just completed a chapter. You MUST ask the user if they want to continue with the next chapter!`
-    : (bookContext.book as any).generationMode === "auto" &&
-        bookContext.chapters?.length > 0 &&
-        bookContext.chapters.length <
-          ((bookContext.book as any).structure?.chapterCount || 0)
-      ? `\n⚠️ AUTO MODE ACTIVE: You just completed Chapter ${bookContext.chapters.length}. IMMEDIATELY generate the next chapter without asking for confirmation!`
-      : ""
-}
-
-IMPORTANT GUIDELINES:
-- Be friendly and conversational, not robotic
-- Don't ask all questions at once - gather info naturally through conversation
-- Use the foundation to maintain consistency across chapters
-- Don't show full chapter content in chat - just confirm it's generated
-- User can edit any chapter later in the preview panel
-- Keep responses concise and actionable`,
+    instructions: getPhaseInstructions(bookContext),
 
     // Add contextHandler to inject chapter summaries into every prompt
     contextHandler: async (ctx, args) => {

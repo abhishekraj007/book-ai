@@ -50,6 +50,7 @@ export function ChatPanel({
   generationMode = "manual",
   onGenerationModeChange,
 }: ChatPanelProps) {
+  console.log("messages", JSON.stringify(messages, null, 2));
   return (
     <div className="flex h-full w-full flex-col border-r bg-background">
       {/* Header - fixed height */}

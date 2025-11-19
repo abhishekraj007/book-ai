@@ -54,8 +54,7 @@ export const startGeneration = action({
       : prompt;
 
     // Generate initial response with real-time streaming
-    // saveStreamDeltas: true enables async streaming to database
-    // All clients will get live updates via websocket
+    // Note: maxSteps is now handled internally by the agent based on generation mode
     await (agent as any).streamText(
       ctx,
       { threadId },
@@ -65,7 +64,6 @@ export const startGeneration = action({
           chunking: "word", // Stream word by word for smooth UX
           throttleMs: 100, // Debounce writes every 100ms
         },
-        maxSteps: 1, // Limit to 1 step: Agent generates tool call -> Tool executes -> STOP.
       }
     );
 
@@ -121,16 +119,8 @@ export const continueGeneration = action({
     // Create agent with updated context
     const agent = createBookAgent(ctx, bookId, bookContext);
 
-    // Determine max steps based on phase and mode
-    // Foundation phase: 1 step (User answer -> Agent asks next question -> STOP)
-    // Auto mode: 20 steps (Continuous generation)
-    // Manual mode: 2 steps (saveChapter + askQuestion -> STOP)
-    const generationMode = (bookContext.book as any).generationMode;
-    const isAutoMode = generationMode === "auto";
-    const isFoundation = bookContext.book.currentStep === "foundation";
-    const maxSteps = isFoundation ? 1 : isAutoMode ? 20 : 2;
-
     // Generate response with real-time streaming
+    // Note: maxSteps is now handled internally by the agent based on generation mode
     await (agent as any).streamText(
       ctx,
       { threadId },
@@ -140,7 +130,6 @@ export const continueGeneration = action({
           chunking: "word",
           throttleMs: 100,
         },
-        maxSteps,
       }
     );
 

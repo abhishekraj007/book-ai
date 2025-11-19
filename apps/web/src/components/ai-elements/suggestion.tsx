@@ -1,10 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  ScrollArea,
-  ScrollBar,
-} from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
 
@@ -42,9 +39,9 @@ export const Suggestion = ({
   };
 
   return (
-    <Button 
-    className={cn(
-        "cursor-pointer rounded-full px-4 py-2 h-auto whitespace-normal text-left",
+    <Button
+      className={cn(
+        "cursor-pointer rounded-full px-4 py-2 h-auto whitespace-normal text-left transition-all dark:border-primary/50 dark:hover:border-primary  dark:hover:bg-primary/5",
         className
       )}
       onClick={handleClick}
