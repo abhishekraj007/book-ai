@@ -1,6 +1,6 @@
 "use client";
 
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth } from "convex/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@book-ai/backend/convex/_generated/api";
 import type { Id } from "@book-ai/backend/convex/_generated/dataModel";
@@ -27,7 +27,11 @@ export default function BookGenerationPage({
   const { id } = React.use(params);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [activeView, setActiveView] = useState<"view" | "edit">("view");
-  const [generationMode, setGenerationMode] = useState<"auto" | "manual">("manual");
+  const [generationMode, setGenerationMode] = useState<"auto" | "manual">(
+    "manual"
+  );
+
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
 
   // Fetch book first to get title
   const book = useQuery(api.features.books.index.getBook, {
@@ -37,10 +41,23 @@ export default function BookGenerationPage({
 
   // Redirect if book not found (could be auth issue or doesn't exist)
   useEffect(() => {
+    if (isAuthLoading) {
+      return;
+    }
+    if (!isAuthLoading && !isAuthenticated) {
+      router.push("/auth");
+    }
     if (book === null) {
       router.push("/dashboard");
     }
-  }, [book, router]);
+  }, [book, router, isAuthenticated, isAuthLoading]);
+
+  // Initialize generation mode from book data
+  useEffect(() => {
+    if (book?.generationMode) {
+      setGenerationMode(book.generationMode);
+    }
+  }, [book?.generationMode]);
 
   // Initialize chat with book context - will auto-start with book title if no existing thread
   // If book has threadId, resume the conversation instead of starting new
@@ -63,7 +80,7 @@ export default function BookGenerationPage({
   const updateChapter = useMutation(
     api.features.books.index.updateChapterContent
   );
-  
+
   // Mutation for setting generation mode
   const setGenerationModeMutation = useMutation(
     api.features.books.index.setGenerationMode
@@ -75,7 +92,7 @@ export default function BookGenerationPage({
       content,
     });
   };
-  
+
   const handleGenerationModeChange = async (mode: "auto" | "manual") => {
     setGenerationMode(mode);
     // Also save to backend
