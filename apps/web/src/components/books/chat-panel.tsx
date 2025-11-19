@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X, BookOpen, Loader2 } from "lucide-react";
+import { Check, X, BookOpen, Loader2, Zap, Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSmoothText } from "@convex-dev/agent/react";
 import {
@@ -27,6 +27,15 @@ import { cn } from "@/lib/utils";
 import { getContextualSuggestions } from "@/utils/chat-utils";
 import { Markdown } from "@/components/ui/markdown";
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
+import { QuestionCard } from "./question-card";
+import type { QuestionCardMetadata } from "@/types/question-card";
+import { useState } from "react";
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from "@/components/ai-elements/reasoning";
 
 interface ChatPanelProps {
   messages: any[];
@@ -41,6 +50,8 @@ interface ChatPanelProps {
   loadMore?: () => void;
   canLoadMore?: boolean;
   isLoadingMore?: boolean;
+  generationMode?: "auto" | "manual";
+  onGenerationModeChange?: (mode: "auto" | "manual") => void;
 }
 
 /**
@@ -54,6 +65,7 @@ function MessageWithSmoothing({
   onReject,
   onSendMessage,
   isLastMessage,
+  hasUserResponseAfter,
 }: {
   message: any;
   isLoading: boolean;
@@ -61,6 +73,7 @@ function MessageWithSmoothing({
   onReject: () => void;
   onSendMessage: (message: string) => void;
   isLastMessage: boolean;
+  hasUserResponseAfter: boolean;
 }) {
   // Use smooth text for streaming messages
   const [smoothText] = useSmoothText(message.text || message.content || "", {
@@ -102,41 +115,118 @@ function MessageWithSmoothing({
         )}
 
         {/* Show streaming indicator with shimmer effect */}
-        {message.status === "streaming" && (
-          <div className="mt-2">
-            <Shimmer className="text-xs text-muted-foreground">
-              Thinking...
-            </Shimmer>
-          </div>
+        {(message.status === "streaming" || (message as any).reasoning) && (
+          <Reasoning isStreaming={message.status === "streaming"}>
+            <ReasoningTrigger />
+            <ReasoningContent>
+              {(message as any).reasoning || ""}
+            </ReasoningContent>
+          </Reasoning>
         )}
 
-        {/* Tool invocations */}
-        {message.toolInvocations?.map((tool: any) => {
-          const isInProgress = tool.state === "call" || !tool.result;
-          
-          // Special handling for draft chapter generation
-          if (tool.toolName === "saveDraftChapter") {
-            const args = tool.args;
+        {/* Tool invocations - Convex Agent stores them in parts array */}
+        {(() => {
+          // Debug: log message parts
+          if ((message as any).parts) {
+            const toolParts = (message as any).parts.filter((p: any) =>
+              p.type?.startsWith("tool-")
+            );
+            if (toolParts.length > 0) {
+              console.log(
+                "[CHAT-PANEL] Message has tool parts:",
+                toolParts.map((t: any) => t.type)
+              );
+            }
+          }
+          return null;
+        })()}
+        {(message as any).parts?.map((part: any, idx: number) => {
+          // Skip non-tool parts
+          if (!part.type?.startsWith("tool-")) return null;
+
+          const isInProgress =
+            part.state !== "output-available" && part.state !== "done";
+
+          // Debug logging for askQuestion
+          if (part.type === "tool-askQuestion") {
+            console.log("[CHAT-PANEL] askQuestion tool found in parts:", {
+              type: part.type,
+              isInProgress,
+              state: part.state,
+              input: part.input,
+              output: part.output,
+            });
+          }
+
+          // Special handling for askQuestion tool - render suggestions
+          if (part.type === "tool-askQuestion") {
+            const input = part.input;
+
+            // Only render if the tool has completed (has output)
+            // Skip the "input-available" state to avoid duplicates
+            if (!part.output || part.state === "input-available") {
+              return null;
+            }
+
+            // Always render the question text (even after user responds)
+            // But hide suggestions after user responds
             return (
-              <div key={tool.toolCallId} className="mt-4">
+              <div key={`part-${idx}`} className="mt-3 space-y-2">
+                {/* Render the question text - always visible */}
+                {input?.question && (
+                  <p className="text-sm font-medium text-foreground mb-2">
+                    {input.question}
+                  </p>
+                )}
+
+                {/* Render suggestions only if user hasn't responded yet */}
+                {!hasUserResponseAfter && (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {input?.suggestions?.map(
+                        (suggestion: string, sugIdx: number) => (
+                          <Suggestion
+                            key={sugIdx}
+                            suggestion={suggestion}
+                            onClick={() => onSendMessage(suggestion)}
+                          />
+                        )
+                      )}
+                    </div>
+                    {input?.allowCustomInput !== false && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        Or type your own answer below
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          }
+
+          // Special handling for chapter generation
+          if (part.type === "tool-saveChapter") {
+            const input = part.input;
+            return (
+              <div key={`part-${idx}`} className="mt-4">
                 <Task defaultOpen={false}>
                   <TaskTrigger
-                    title={`Generating Chapter ${args?.chapterNumber || "..."}: ${args?.title || "Loading..."}`}
+                    title={`Chapter ${input?.chapterNumber || "..."}: ${input?.title || "Loading..."}`}
                   />
                   <TaskContent>
                     <TaskItem>
                       <span className="text-xs text-muted-foreground">
-                        Word count: {args?.wordCount || "..."} words
+                        Word count: {input?.wordCount || "..."} words
                       </span>
                     </TaskItem>
                     <TaskItem>
                       {isInProgress ? (
                         <Shimmer className="text-xs text-muted-foreground">
-                          Saving draft...
+                          Generating chapter...
                         </Shimmer>
                       ) : (
                         <span className="text-xs text-green-600">
-                          Draft saved! Review in the preview panel
+                          ✓ Chapter saved! View in the preview panel
                         </span>
                       )}
                     </TaskItem>
@@ -148,15 +238,22 @@ function MessageWithSmoothing({
 
           // Regular tool invocations
           if (isInProgress) {
-            const loadingText = 
-              tool.toolName === "saveOutline" ? "Saving outline..." :
-              tool.toolName === "saveChapter" ? "Saving chapter..." :
-              tool.toolName === "saveCheckpoint" ? "Saving progress..." :
-              "Processing...";
-            
+            const loadingText =
+              part.type === "tool-saveStoryIdeas"
+                ? "Saving story ideas..."
+                : part.type === "tool-saveFoundation"
+                  ? "Saving foundation..."
+                  : part.type === "tool-saveStructure"
+                    ? "Saving structure..."
+                    : part.type === "tool-setGenerationMode"
+                      ? "Setting generation mode..."
+                      : part.type === "tool-saveCheckpoint"
+                        ? "Saving progress..."
+                        : "Processing...";
+
             return (
               <div
-                key={tool.toolCallId}
+                key={`part-${idx}`}
                 className="mt-2 rounded border bg-background p-2 text-xs"
               >
                 <Shimmer className="text-muted-foreground">
@@ -168,18 +265,67 @@ function MessageWithSmoothing({
 
           return (
             <div
-              key={tool.toolCallId}
+              key={`part-${idx}`}
               className="mt-2 rounded border bg-background p-2 text-xs"
             >
               <div className="font-semibold text-foreground">
-                {tool.toolName === "saveOutline" && "✓ Outline Saved"}
-                {tool.toolName === "saveChapter" && "✓ Chapter Saved"}
-                {tool.toolName === "saveCheckpoint" && "✓ Progress Saved"}
+                {part.type === "tool-saveStoryIdeas" && "✓ Story Ideas Saved"}
+                {part.type === "tool-saveFoundation" && "✓ Foundation Saved"}
+                {part.type === "tool-saveStructure" && "✓ Structure Saved"}
+                {part.type === "tool-setGenerationMode" &&
+                  "✓ Generation Mode Set"}
+                {part.type === "tool-saveCheckpoint" && "✓ Progress Saved"}
               </div>
             </div>
           );
         })}
       </MessageContent>
+
+      {/* Question Card - render outside MessageContent for better styling */}
+      {message.role === "assistant" &&
+        message.metadata?.messageType === "question_card" && (
+          <QuestionCard
+            question={message.content}
+            options={(message.metadata as QuestionCardMetadata).options}
+            allowCustomInput={
+              (message.metadata as QuestionCardMetadata).allowCustomInput
+            }
+            multiSelect={(message.metadata as QuestionCardMetadata).multiSelect}
+            onSelect={(optionId, customValue) => {
+              // Find the selected option label
+              const option = (
+                message.metadata as QuestionCardMetadata
+              ).options.find((opt) => opt.id === optionId);
+              const responseText = customValue || option?.label || optionId;
+              onSendMessage(responseText);
+            }}
+          />
+        )}
+
+      {/* Question with Suggestions - new format from askQuestion tool */}
+      {message.role === "assistant" &&
+        message.metadata?.messageType === "question_with_suggestions" &&
+        !isLoading &&
+        message.status !== "streaming" && (
+          <div className="mt-3 space-y-2">
+            <Suggestions>
+              {(message.metadata as any).suggestions?.map(
+                (suggestion: string, idx: number) => (
+                  <Suggestion
+                    key={idx}
+                    suggestion={suggestion}
+                    onClick={() => onSendMessage(suggestion)}
+                  />
+                )
+              )}
+            </Suggestions>
+            {(message.metadata as any).allowCustomInput !== false && (
+              <p className="text-xs text-muted-foreground text-center">
+                Or type your own answer below
+              </p>
+            )}
+          </div>
+        )}
 
       {/* Approval buttons - only show on last assistant message */}
       {message.role === "assistant" &&
@@ -245,9 +391,11 @@ export function ChatPanel({
   loadMore,
   canLoadMore,
   isLoadingMore,
+  generationMode = "manual",
+  onGenerationModeChange,
 }: ChatPanelProps) {
   return (
-    <div className="flex h-full w-[380px] flex-col border-r bg-background">
+    <div className="flex h-full w-full flex-col border-r bg-background">
       {/* Header - fixed height */}
       <div className="shrink-0 border-b p-4">
         <div className="flex items-center gap-3">
@@ -260,6 +408,30 @@ export function ChatPanel({
               Your AI writing assistant
             </p>
           </div>
+
+          {/* Generation Mode Toggle */}
+          {onGenerationModeChange && (
+            <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1">
+              <Button
+                variant={generationMode === "auto" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => onGenerationModeChange("auto")}
+                className="h-7 gap-1.5 text-xs"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                Auto
+              </Button>
+              <Button
+                variant={generationMode === "manual" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => onGenerationModeChange("manual")}
+                className="h-7 gap-1.5 text-xs"
+              >
+                <Hand className="h-3.5 w-3.5" />
+                Manual
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -273,7 +445,7 @@ export function ChatPanel({
                 <div className="text-center">
                   <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Loading conversation...
+                    Thinking abouts new book ideas...
                   </p>
                 </div>
               </div>
@@ -301,17 +473,26 @@ export function ChatPanel({
                   </div>
                 )}
 
-                {messages.map((message: any, index: number) => (
-                  <MessageWithSmoothing
-                    key={message.id}
-                    message={message}
-                    isLoading={isLoading}
-                    onApprove={onApprove}
-                    onReject={onReject}
-                    onSendMessage={onSendMessage}
-                    isLastMessage={index === messages.length - 1}
-                  />
-                ))}
+                {messages.map((message: any, index: number) => {
+                  // Check if there's a user message after this assistant message
+                  const hasUserResponseAfter =
+                    message.role === "assistant" &&
+                    index < messages.length - 1 &&
+                    messages[index + 1]?.role === "user";
+
+                  return (
+                    <MessageWithSmoothing
+                      key={message.id}
+                      message={message}
+                      isLoading={isLoading}
+                      onApprove={onApprove}
+                      onReject={onReject}
+                      onSendMessage={onSendMessage}
+                      isLastMessage={index === messages.length - 1}
+                      hasUserResponseAfter={hasUserResponseAfter}
+                    />
+                  );
+                })}
 
                 {error && (
                   <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-xs text-destructive">

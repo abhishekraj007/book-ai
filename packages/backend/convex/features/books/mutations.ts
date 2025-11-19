@@ -29,7 +29,160 @@ export const updateBook = internalMutation({
 });
 
 // ============================================================================
-// Book Outline Mutations
+// Multi-Phase Workflow Mutations
+// ============================================================================
+
+export const saveStoryIdeas = internalMutation({
+  args: {
+    bookId: v.string(),
+    ideas: v.array(
+      v.object({
+        title: v.string(),
+        premise: v.string(),
+        genre: v.string(),
+      })
+    ),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { bookId, ideas }) => {
+    await ctx.db.patch(bookId as Id<"books">, {
+      storyIdeas: ideas,
+      currentStep: "ideation",
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+export const saveFoundation = internalMutation({
+  args: {
+    bookId: v.string(),
+    foundation: v.object({
+      synopsis: v.string(),
+      themes: v.array(v.string()),
+      targetAudience: v.string(),
+      targetWordCount: v.number(),
+      genre: v.string(),
+      characters: v.optional(
+        v.array(
+          v.object({
+            name: v.string(),
+            role: v.string(),
+            description: v.string(),
+          })
+        )
+      ),
+      setting: v.optional(v.string()),
+      conflict: v.optional(v.string()),
+      tone: v.optional(v.string()),
+      coreArguments: v.optional(v.array(v.string())),
+      approach: v.optional(v.string()),
+    }),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { bookId, foundation }) => {
+    await ctx.db.patch(bookId as Id<"books">, {
+      foundation,
+      currentStep: "foundation",
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+export const saveStructure = internalMutation({
+  args: {
+    bookId: v.string(),
+    chapterCount: v.number(),
+    chapterTitles: v.array(v.string()),
+    hasPrologue: v.boolean(),
+    hasEpilogue: v.boolean(),
+    estimatedWordsPerChapter: v.number(),
+    parts: v.optional(
+      v.array(
+        v.object({
+          partNumber: v.number(),
+          title: v.string(),
+          chapterRange: v.object({ start: v.number(), end: v.number() }),
+        })
+      )
+    ),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, args) => {
+    const { bookId, ...structure } = args;
+    
+    // Save structure to book
+    await ctx.db.patch(bookId as Id<"books">, {
+      structure,
+      currentStep: "structure",
+      updatedAt: Date.now(),
+    });
+
+    // Create placeholder chapters
+    const now = Date.now();
+    for (let i = 0; i < structure.chapterCount; i++) {
+      await ctx.db.insert("chapters", {
+        bookId: bookId as Id<"books">,
+        chapterNumber: i + 1,
+        title: structure.chapterTitles[i] || `Chapter ${i + 1}`,
+        content: "",
+        currentVersion: 0,
+        status: "pending",
+        wordCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+export const setGenerationMode = internalMutation({
+  args: {
+    bookId: v.string(),
+    mode: v.union(v.literal("auto"), v.literal("manual")),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { bookId, mode }) => {
+    await ctx.db.patch(bookId as Id<"books">, {
+      generationMode: mode,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+export const updateBookMetadata = internalMutation({
+  args: {
+    bookId: v.string(),
+    metadata: v.object({
+      genre: v.optional(v.string()),
+      targetAudience: v.optional(v.string()),
+      pageCount: v.optional(v.number()),
+      language: v.optional(v.string()),
+      tone: v.optional(v.string()),
+    }),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { bookId, metadata }) => {
+    const book = await ctx.db.get(bookId as Id<"books">);
+    if (!book) throw new Error("Book not found");
+
+    await ctx.db.patch(bookId as Id<"books">, {
+      metadata: {
+        ...book.metadata,
+        ...metadata,
+      },
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
+// ============================================================================
+// Book Outline Mutations (Legacy - keeping for backward compatibility)
 // ============================================================================
 
 export const saveOutline = internalMutation({
@@ -86,7 +239,7 @@ export const saveChapter = internalMutation({
     content: v.string(),
     wordCount: v.number(),
   },
-  returns: v.object({ chapterId: v.string() }),
+  returns: v.object({ chapterId: v.string(), success: v.boolean() }),
   handler: async (
     ctx,
     { bookId, chapterNumber, title, content, wordCount }
@@ -104,23 +257,24 @@ export const saveChapter = internalMutation({
     }
 
     const now = Date.now();
+    const newVersion = chapter.currentVersion + 1;
 
-    // Create first version
+    // Create version (or first version if currentVersion is 0)
     await ctx.db.insert("chapterVersions", {
       chapterId: chapter._id,
-      versionNumber: 1,
+      versionNumber: newVersion,
       content,
       changedBy: "ai",
-      changeDescription: "Initial generation",
+      changeDescription: chapter.currentVersion === 0 ? "Initial generation" : "Chapter revision",
       createdAt: now,
     });
 
-    // Update chapter with content
+    // Update chapter with content (auto-approved)
     await ctx.db.patch(chapter._id, {
       title,
       content,
-      currentVersion: 1,
-      status: "approved",
+      currentVersion: newVersion,
+      status: "approved", // Auto-approve all chapters
       wordCount,
       updatedAt: now,
     });
@@ -131,7 +285,7 @@ export const saveChapter = internalMutation({
       updatedAt: now,
     });
 
-    return { chapterId: chapter._id };
+    return { chapterId: chapter._id, success: true };
   },
 });
 

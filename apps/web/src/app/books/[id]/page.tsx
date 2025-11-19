@@ -12,6 +12,11 @@ import { AppSidebar } from "@/components/books/app-sidebar";
 import { ChatPanel } from "@/components/books/chat-panel";
 import { PreviewPanel } from "@/components/books/preview-panel";
 import { Loader2 } from "lucide-react";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
 export default function BookGenerationPage({
   params,
@@ -22,6 +27,7 @@ export default function BookGenerationPage({
   const { id } = React.use(params);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [activeView, setActiveView] = useState<"view" | "edit">("view");
+  const [generationMode, setGenerationMode] = useState<"auto" | "manual">("manual");
 
   // Fetch book first to get title
   const book = useQuery(api.features.books.index.getBook, {
@@ -57,11 +63,25 @@ export default function BookGenerationPage({
   const updateChapter = useMutation(
     api.features.books.index.updateChapterContent
   );
+  
+  // Mutation for setting generation mode
+  const setGenerationModeMutation = useMutation(
+    api.features.books.index.setGenerationMode
+  );
 
   const handleSaveChapter = async (chapterId: string, content: string) => {
     await updateChapter({
       chapterId: chapterId as Id<"chapters">,
       content,
+    });
+  };
+  
+  const handleGenerationModeChange = async (mode: "auto" | "manual") => {
+    setGenerationMode(mode);
+    // Also save to backend
+    await setGenerationModeMutation({
+      bookId: id as Id<"books">,
+      mode,
     });
   };
 
@@ -106,29 +126,39 @@ export default function BookGenerationPage({
       <div className="flex flex-1 overflow-hidden">
         <AppSidebar collapsed={sidebarCollapsed} />
 
-        <ChatPanel
-          messages={messages}
-          input={input}
-          setInput={setInput}
-          onSubmit={handlePromptSubmit}
-          isLoading={isLoading}
-          error={error}
-          onApprove={approve}
-          onReject={reject}
-          onSendMessage={sendMessage}
-          loadMore={() => loadMore(20)}
-          canLoadMore={canLoadMore}
-          isLoadingMore={isLoadingMore}
-        />
+        <ResizablePanelGroup direction="horizontal" className="flex-1">
+          <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
+            <ChatPanel
+              messages={messages}
+              input={input}
+              setInput={setInput}
+              onSubmit={handlePromptSubmit}
+              isLoading={isLoading}
+              error={error}
+              onApprove={approve}
+              onReject={reject}
+              onSendMessage={sendMessage}
+              loadMore={() => loadMore(20)}
+              canLoadMore={canLoadMore}
+              isLoadingMore={isLoadingMore}
+              generationMode={generationMode}
+              onGenerationModeChange={handleGenerationModeChange}
+            />
+          </ResizablePanel>
 
-        <PreviewPanel
-          book={book}
-          chapters={chapters}
-          isLoading={isLoading}
-          activeView={activeView}
-          onViewChange={setActiveView}
-          onSaveChapter={handleSaveChapter}
-        />
+          <ResizableHandle withHandle />
+
+          <ResizablePanel defaultSize={70} minSize={50}>
+            <PreviewPanel
+              book={book}
+              chapters={chapters}
+              isLoading={isLoading}
+              activeView={activeView}
+              onViewChange={setActiveView}
+              onSaveChapter={handleSaveChapter}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </div>
   );

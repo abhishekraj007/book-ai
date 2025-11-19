@@ -47,18 +47,25 @@ export const startGeneration = action({
     });
     console.log("[THREAD] Created:", threadId);
 
+    // Create initial prompt based on whether this is a new book (genre selection) or custom prompt
+    const isGenreSelection = bookContext.book.title.endsWith(" Book");
+    const initialPrompt = isGenreSelection
+      ? `I want to create a ${bookContext.book.type} book.`
+      : prompt;
+
     // Generate initial response with real-time streaming
     // saveStreamDeltas: true enables async streaming to database
     // All clients will get live updates via websocket
     await (agent as any).streamText(
       ctx,
       { threadId },
-      { prompt },
+      { prompt: initialPrompt },
       {
         saveStreamDeltas: {
           chunking: "word", // Stream word by word for smooth UX
           throttleMs: 100, // Debounce writes every 100ms
         },
+        maxSteps: 1, // Limit to 1 step: Agent generates tool call -> Tool executes -> STOP.
       }
     );
 
@@ -114,6 +121,15 @@ export const continueGeneration = action({
     // Create agent with updated context
     const agent = createBookAgent(ctx, bookId, bookContext);
 
+    // Determine max steps based on phase and mode
+    // Foundation phase: 1 step (User answer -> Agent asks next question -> STOP)
+    // Auto mode: 20 steps (Continuous generation)
+    // Manual mode: 5 steps (Generate chapter -> Ask for confirmation)
+    const generationMode = (bookContext.book as any).generationMode;
+    const isAutoMode = generationMode === "auto";
+    const isFoundation = bookContext.book.currentStep === "foundation";
+    const maxSteps = isFoundation ? 1 : isAutoMode ? 20 : 5;
+
     // Generate response with real-time streaming
     await (agent as any).streamText(
       ctx,
@@ -124,6 +140,7 @@ export const continueGeneration = action({
           chunking: "word",
           throttleMs: 100,
         },
+        maxSteps,
       }
     );
 

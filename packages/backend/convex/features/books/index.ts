@@ -12,6 +12,31 @@ import { internal } from "../../_generated/api";
 // Export public actions for book generation
 export { startGeneration, continueGeneration } from "./actions";
 
+// Export public mutation for setting generation mode
+export const setGenerationMode = mutation({
+  args: {
+    bookId: v.id("books"),
+    mode: v.union(v.literal("auto"), v.literal("manual")),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, { bookId, mode }) => {
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) throw new Error("Not authenticated");
+
+    const book = await ctx.db.get(bookId);
+    if (!book || book.userId !== user.subject) {
+      throw new Error("Not authorized");
+    }
+
+    await ctx.runMutation(internal.features.books.mutations.setGenerationMode, {
+      bookId: bookId as string,
+      mode,
+    });
+
+    return { success: true };
+  },
+});
+
 // Export public mutation for editing chapter content
 export const updateChapterContent = mutation({
   args: {

@@ -10,7 +10,6 @@
 
 import type * as auth from "../auth.js";
 import type * as features_books_actions from "../features/books/actions.js";
-import type * as features_books_agent from "../features/books/agent.js";
 import type * as features_books_bookAgent from "../features/books/bookAgent.js";
 import type * as features_books_export from "../features/books/export.js";
 import type * as features_books_index from "../features/books/index.js";
@@ -37,6 +36,7 @@ import type * as lib_betterAuth_index from "../lib/betterAuth/index.js";
 import type * as lib_revenuecatWebhooks from "../lib/revenuecatWebhooks.js";
 import type * as migrations_addCreditsToProfiles from "../migrations/addCreditsToProfiles.js";
 import type * as model_user from "../model/user.js";
+import type * as playground from "../playground.js";
 import type * as privateData from "../privateData.js";
 import type * as purchases from "../purchases.js";
 import type * as todos from "../todos.js";
@@ -60,7 +60,6 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   "features/books/actions": typeof features_books_actions;
-  "features/books/agent": typeof features_books_agent;
   "features/books/bookAgent": typeof features_books_bookAgent;
   "features/books/export": typeof features_books_export;
   "features/books/index": typeof features_books_index;
@@ -87,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "lib/revenuecatWebhooks": typeof lib_revenuecatWebhooks;
   "migrations/addCreditsToProfiles": typeof migrations_addCreditsToProfiles;
   "model/user": typeof model_user;
+  playground: typeof playground;
   privateData: typeof privateData;
   purchases: typeof purchases;
   todos: typeof todos;

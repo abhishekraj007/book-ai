@@ -15,6 +15,7 @@ import {
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { cn } from "@/lib/utils";
 import type { ChatStatus } from "ai";
+import { Loader2 } from "lucide-react";
 
 const suggestions = [
   "A children's storybook about a brave knight",
@@ -23,6 +24,14 @@ const suggestions = [
   "A sci-fi novel about AI discovering ancient human music",
   "A self-help guide for creative entrepreneurs",
   "A history book about ancient civilizations",
+];
+const genres = [
+  { id: "fiction", label: "Fiction", icon: "📖" },
+  { id: "non_fiction", label: "Non-Fiction", icon: "📚" },
+  { id: "childrens", label: "Children's", icon: "🧸" },
+  { id: "educational", label: "Educational", icon: "🎓" },
+  { id: "reference", label: "Reference", icon: "📋" },
+  { id: "poetry", label: "Poetry", icon: "✍️" },
 ];
 
 interface BookPromptProps {
@@ -37,6 +46,7 @@ interface BookPromptProps {
 export function BookPrompt({ className }: BookPromptProps) {
   const router = useRouter();
   const createBook = useMutation(api.features.books.index.createBook);
+  const [creatingGenre, setCreatingGenre] = useState<string | null>(null);
 
   const [text, setText] = useState("");
   const [status, setStatus] = useState<ChatStatus | undefined>(undefined);
@@ -72,6 +82,25 @@ export function BookPrompt({ className }: BookPromptProps) {
 
   const handleSuggestionClick = (suggestion: string) => {
     setText(suggestion);
+  };
+
+  const handleGenreSelect = async (genreId: string, genreLabel: string) => {
+    try {
+      setCreatingGenre(genreId);
+
+      // Create book with genre-specific title and better initial prompt
+      const result = await createBook({
+        title: `${genreLabel} Book`,
+        type: genreId,
+      });
+
+      // Navigate to the book page
+      // The agent will start by asking questions one-by-one
+      router.push(`/books/${result.bookId}`);
+    } catch (error) {
+      console.error("Failed to create book:", error);
+      setCreatingGenre(null);
+    }
   };
 
   return (
@@ -118,17 +147,20 @@ export function BookPrompt({ className }: BookPromptProps) {
           </Suggestions>
         </div>
 
-        {/* Info Text */}
-        <div className="text-center space-y-2 pt-4">
-          <p className="text-sm text-muted-foreground">
-            Powered by{" "}
-            <span className="font-semibold">Kimi K2 Thinking AI</span>
+        {/* Try an Example - Simple Genre Pills */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-muted-foreground mb-3">
+            Or choose a genre:
           </p>
-          <p className="text-xs text-muted-foreground max-w-2xl mx-auto">
-            Capable of writing entire books with 200-300 sequential tool calls.
-            The AI will guide you through the process with approval at each
-            step.
-          </p>
+          <Suggestions>
+            {genres.map((genre) => (
+              <Suggestion
+                key={genre.id}
+                suggestion={genre.label}
+                onClick={() => handleGenreSelect(genre.id, genre.label)}
+              />
+            ))}
+          </Suggestions>
         </div>
       </div>
     </div>

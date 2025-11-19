@@ -52,6 +52,16 @@ export function useBookGeneration(
     }
   );
 
+  // Debug: log messages whenever they change
+  // useEffect(() => {
+  //   if (messages && messages.length > 0) {
+  //     console.log("[HOOK] Messages updated:", messages.length, "messages");
+  //     const lastMsg = messages[messages.length - 1];
+  //     console.log("[HOOK] Last message full object:", JSON.stringify(lastMsg, null, 2));
+  //     console.log("[HOOK] Last message keys:", Object.keys(lastMsg));
+  //   }
+  // }, [messages]);
+
   // Sync existingThreadId with local threadId state
   useEffect(() => {
     if (existingThreadId && !threadId) {

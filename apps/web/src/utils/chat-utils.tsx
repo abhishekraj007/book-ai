@@ -13,15 +13,13 @@ export function getContextualSuggestions(
   text: string
 ): ContextualSuggestion[] {
   const lowerText = text.toLowerCase();
-  const suggestions: ContextualSuggestion[] = [];
 
-  // Chapter review context
+  // Chapter review context - highest priority
   if (
-    lowerText.includes("review") ||
-    lowerText.includes("meets your vision") ||
-    lowerText.includes("changes you'd like")
+    lowerText.includes("review") &&
+    lowerText.includes("chapter")
   ) {
-    suggestions.push(
+    return [
       {
         label: "Looks good",
         message: "Looks good, continue",
@@ -36,18 +34,18 @@ export function getContextualSuggestions(
         label: "Improve",
         message: "Please improve this chapter",
         icon: <TrendingUp className="h-3 w-3" />,
-      }
-    );
+      },
+    ];
   }
 
   // General chapter content context
   if (
     lowerText.includes("chapter") &&
-    (lowerText.includes("complete") ||
-      lowerText.includes("finished") ||
+    (lowerText.includes("generated") ||
+      lowerText.includes("saved") ||
       lowerText.includes("ready"))
   ) {
-    suggestions.push(
+    return [
       {
         label: "Continue",
         message: "Looks good, continue",
@@ -62,8 +60,8 @@ export function getContextualSuggestions(
         label: "Improve",
         message: "Please improve this chapter",
         icon: <TrendingUp className="h-3 w-3" />,
-      }
-    );
+      },
+    ];
   }
 
   // Outline context
@@ -71,7 +69,7 @@ export function getContextualSuggestions(
     lowerText.includes("outline") &&
     (lowerText.includes("proceed") || lowerText.includes("changes"))
   ) {
-    suggestions.push(
+    return [
       {
         label: "Looks good",
         message: "Looks good, continue",
@@ -81,23 +79,21 @@ export function getContextualSuggestions(
         label: "Revise",
         message: "Please revise the outline",
         icon: <RefreshCw className="h-3 w-3" />,
-      }
-    );
+      },
+    ];
   }
 
   // Default suggestions for any assistant message asking for feedback
-  if (suggestions.length === 0) {
-    if (
-      lowerText.includes("?") ||
-      lowerText.includes("let me know") ||
-      lowerText.includes("feedback")
-    ) {
-      suggestions.push(
-        { label: "Looks good", message: "Looks good, continue" },
-        { label: "Improve", message: "Please improve this" }
-      );
-    }
+  if (
+    lowerText.includes("?") ||
+    lowerText.includes("let me know") ||
+    lowerText.includes("feedback")
+  ) {
+    return [
+      { label: "Looks good", message: "Looks good, continue" },
+      { label: "Improve", message: "Please improve this" },
+    ];
   }
 
-  return suggestions;
+  return [];
 }

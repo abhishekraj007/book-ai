@@ -91,8 +91,70 @@ export default defineSchema({
     title: v.string(),
     type: v.string(), // "fiction", "non_fiction", "storybook", "coloring_book", etc.
     status: v.string(), // "draft", "generating", "awaiting_approval", "completed", "failed"
-    currentStep: v.string(), // Current generation step (e.g., "outline", "chapter_3")
+    currentStep: v.string(), // Current generation step (e.g., "ideation", "foundation", "structure", "chapter_3")
     threadId: v.optional(v.string()), // Convex Agent thread ID for conversation continuity
+    
+    // Generation mode
+    generationMode: v.optional(v.union(v.literal("auto"), v.literal("manual"))),
+    
+    // Book foundation (gathered in phase 2)
+    foundation: v.optional(
+      v.object({
+        synopsis: v.string(),
+        themes: v.array(v.string()),
+        targetAudience: v.string(),
+        targetWordCount: v.number(),
+        genre: v.string(),
+        // Fiction-specific fields
+        characters: v.optional(
+          v.array(
+            v.object({
+              name: v.string(),
+              role: v.string(),
+              description: v.string(),
+            })
+          )
+        ),
+        setting: v.optional(v.string()),
+        conflict: v.optional(v.string()),
+        tone: v.optional(v.string()),
+        // Non-fiction specific fields
+        coreArguments: v.optional(v.array(v.string())),
+        approach: v.optional(v.string()),
+      })
+    ),
+    
+    // Book structure (designed in phase 3)
+    structure: v.optional(
+      v.object({
+        chapterCount: v.number(),
+        chapterTitles: v.array(v.string()),
+        hasPrologue: v.boolean(),
+        hasEpilogue: v.boolean(),
+        estimatedWordsPerChapter: v.number(),
+        parts: v.optional(
+          v.array(
+            v.object({
+              partNumber: v.number(),
+              title: v.string(),
+              chapterRange: v.object({ start: v.number(), end: v.number() }),
+            })
+          )
+        ),
+      })
+    ),
+    
+    // Story ideas (for ideation phase)
+    storyIdeas: v.optional(
+      v.array(
+        v.object({
+          title: v.string(),
+          premise: v.string(),
+          genre: v.string(),
+        })
+      )
+    ),
+    
     metadata: v.object({
       genre: v.optional(v.string()),
       targetAudience: v.optional(v.string()),
