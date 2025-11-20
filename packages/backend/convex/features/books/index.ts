@@ -209,6 +209,8 @@ export const getBook = query({
       generationMode: v.optional(
         v.union(v.literal("auto"), v.literal("manual"))
       ),
+      foundation: v.optional(v.any()),
+      structure: v.optional(v.any()),
       metadata: v.any(),
       creditsUsed: v.number(),
       createdAt: v.number(),
@@ -259,6 +261,8 @@ export const getBook = query({
       currentStep: book.currentStep,
       threadId: book.threadId, // Include threadId for conversation continuity
       generationMode: book.generationMode, // Include generationMode for persistence
+      foundation: book.foundation,
+      structure: book.structure,
       metadata: book.metadata,
       creditsUsed: book.creditsUsed,
       createdAt: book._creationTime,

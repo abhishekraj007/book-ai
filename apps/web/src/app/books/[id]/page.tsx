@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@book-ai/backend/convex/_generated/api";
@@ -10,7 +10,10 @@ import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { BookHeader } from "@/components/books/book-header";
 import { AppSidebar } from "@/components/books/app-sidebar";
 import { ChatPanel } from "@/components/books/chat-panel";
-import { PreviewPanel } from "@/components/books/preview-panel";
+import {
+  PreviewPanel,
+  type PreviewPanelRef,
+} from "@/components/books/preview-panel";
 import { Loader2 } from "lucide-react";
 import {
   ResizablePanelGroup,
@@ -30,6 +33,7 @@ export default function BookGenerationPage({
   const [generationMode, setGenerationMode] = useState<"auto" | "manual">(
     "manual"
   );
+  const previewPanelRef = useRef<PreviewPanelRef>(null);
 
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
 
@@ -102,6 +106,30 @@ export default function BookGenerationPage({
     });
   };
 
+  const handleGeneratePrologue = () => {
+    // Send a message to the AI to generate the prologue
+    const bookContext = {
+      title: book?.title,
+      foundation: book?.foundation,
+      structure: book?.structure,
+      chapters: chapters.map((ch: any) => ({
+        number: ch.chapterNumber,
+        title: ch.title,
+        content: ch.content,
+      })),
+    };
+
+    const prologueRequest = `Please generate a prologue for this book. Here's the complete book context:
+
+Title: ${bookContext.title}
+Genre: ${bookContext.foundation?.genre}
+Synopsis: ${bookContext.foundation?.synopsis}
+
+The book has ${chapters.length} chapters. Generate a compelling prologue that sets the tone and hooks the reader.`;
+
+    sendMessage(prologueRequest);
+  };
+
   // Show loading state while fetching book
   if (book === undefined) {
     return (
@@ -160,6 +188,9 @@ export default function BookGenerationPage({
               isLoadingMore={isLoadingMore}
               generationMode={generationMode}
               onGenerationModeChange={handleGenerationModeChange}
+              onScrollToChapter={(chapterId) =>
+                previewPanelRef.current?.scrollToChapter(chapterId)
+              }
             />
           </ResizablePanel>
 
@@ -167,12 +198,14 @@ export default function BookGenerationPage({
 
           <ResizablePanel defaultSize={70} minSize={50}>
             <PreviewPanel
+              ref={previewPanelRef}
               book={book}
               chapters={chapters}
               isLoading={isLoading}
               activeView={activeView}
               onViewChange={setActiveView}
               onSaveChapter={handleSaveChapter}
+              onGeneratePrologue={handleGeneratePrologue}
             />
           </ResizablePanel>
         </ResizablePanelGroup>

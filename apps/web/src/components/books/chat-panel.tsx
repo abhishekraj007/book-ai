@@ -32,6 +32,7 @@ interface ChatPanelProps {
   isLoadingMore?: boolean;
   generationMode?: "auto" | "manual";
   onGenerationModeChange?: (mode: "auto" | "manual") => void;
+  onScrollToChapter?: (chapterId: string) => void;
 }
 
 export function ChatPanel({
@@ -49,6 +50,7 @@ export function ChatPanel({
   isLoadingMore,
   generationMode = "manual",
   onGenerationModeChange,
+  onScrollToChapter,
 }: ChatPanelProps) {
   console.log("messages", JSON.stringify(messages, null, 2));
   return (
@@ -147,6 +149,7 @@ export function ChatPanel({
                       onSendMessage={onSendMessage}
                       isLastMessage={index === messages.length - 1}
                       hasUserResponseAfter={hasUserResponseAfter}
+                      onScrollToChapter={onScrollToChapter}
                     />
                   );
                 })}

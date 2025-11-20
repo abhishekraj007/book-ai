@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X, Loader2, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSmoothText } from "@convex-dev/agent/react";
 import { Message, MessageContent } from "@/components/ai-elements/message";
@@ -24,7 +24,16 @@ interface MessageItemProps {
   onSendMessage: (message: string) => void;
   isLastMessage: boolean;
   hasUserResponseAfter: boolean;
+  onScrollToChapter?: (chapterId: string) => void;
 }
+
+const toolCompletionMessages: Record<string, string> = {
+  "tool-saveStoryIdeas": "✓ Story Ideas Saved",
+  "tool-saveFoundation": "✓ Foundation Saved",
+  "tool-saveStructure": "✓ Structure Saved",
+  "tool-setGenerationMode": "✓ Generation Mode Set",
+  "tool-saveCheckpoint": "✓ Progress Saved",
+};
 
 /**
  * Message component with text smoothing for streaming responses
@@ -38,6 +47,7 @@ export function MessageItem({
   onSendMessage,
   isLastMessage,
   hasUserResponseAfter,
+  onScrollToChapter,
 }: MessageItemProps) {
   // Use smooth text for streaming messages
   const [smoothText] = useSmoothText(message.text || message.content || "", {
@@ -207,9 +217,20 @@ export function MessageItem({
                           Generating chapter...
                         </Shimmer>
                       ) : (
-                        <span className="text-xs text-green-600">
-                          ✓ Chapter saved! View in the preview panel
-                        </span>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => {
+                            const chapterId = part.output?.chapterId;
+                            if (chapterId && onScrollToChapter) {
+                              onScrollToChapter(chapterId);
+                            }
+                          }}
+                          className="text-xs text-green-600 hover:text-green-700 hover:underline cursor-pointer"
+                        >
+                          ✓ Chapter saved! Click to view in the preview panel
+                          <ArrowUpRight className="ml-1 h-3 w-3" />
+                        </Button>
                       )}
                     </TaskItem>
                   </TaskContent>
@@ -231,35 +252,33 @@ export function MessageItem({
                       ? "Setting generation mode..."
                       : part.type === "tool-saveCheckpoint"
                         ? "Saving progress..."
-                        : "Processing...";
+                        : "";
 
+            if (loadingText) {
+              return (
+                <div
+                  key={`part-${idx}`}
+                  className="mt-2 rounded border bg-background p-2 text-xs"
+                >
+                  <Shimmer className="text-muted-foreground">
+                    {loadingText}
+                  </Shimmer>
+                </div>
+              );
+            }
+          }
+
+          if (toolCompletionMessages[part.type]) {
             return (
-              <div
-                key={`part-${idx}`}
-                className="mt-2 rounded border bg-background p-2 text-xs"
-              >
-                <Shimmer className="text-muted-foreground">
-                  {loadingText}
-                </Shimmer>
+              <div key={`part-${idx}`} className="mt-2 text-xs">
+                <div className="font-semibold text-foreground">
+                  {toolCompletionMessages[part.type]}
+                </div>
               </div>
             );
           }
 
-          return (
-            <div
-              key={`part-${idx}`}
-              className="mt-2 rounded border bg-background p-2 text-xs"
-            >
-              <div className="font-semibold text-foreground">
-                {part.type === "tool-saveStoryIdeas" && "✓ Story Ideas Saved"}
-                {part.type === "tool-saveFoundation" && "✓ Foundation Saved"}
-                {part.type === "tool-saveStructure" && "✓ Structure Saved"}
-                {part.type === "tool-setGenerationMode" &&
-                  "✓ Generation Mode Set"}
-                {part.type === "tool-saveCheckpoint" && "✓ Progress Saved"}
-              </div>
-            </div>
-          );
+          return null;
         })}
       </MessageContent>
 
