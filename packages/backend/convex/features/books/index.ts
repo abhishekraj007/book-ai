@@ -11,6 +11,7 @@ import { internal } from "../../_generated/api";
 
 // Export public actions for book generation
 export { startGeneration, continueGeneration } from "./actions";
+export { generateCoverImage } from "./generateCover";
 
 // Export public mutation for setting generation mode
 export const setGenerationMode = mutation({
@@ -211,6 +212,7 @@ export const getBook = query({
       ),
       foundation: v.optional(v.any()),
       structure: v.optional(v.any()),
+      coverImage: v.optional(v.string()),
       metadata: v.any(),
       creditsUsed: v.number(),
       createdAt: v.number(),
@@ -263,6 +265,7 @@ export const getBook = query({
       generationMode: book.generationMode, // Include generationMode for persistence
       foundation: book.foundation,
       structure: book.structure,
+      coverImage: book.coverImage,
       metadata: book.metadata,
       creditsUsed: book.creditsUsed,
       createdAt: book._creationTime,

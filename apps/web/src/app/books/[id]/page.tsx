@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation, useConvexAuth } from "convex/react";
+import { useQuery, useMutation, useConvexAuth, useAction } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "@book-ai/backend/convex/_generated/api";
 import type { Id } from "@book-ai/backend/convex/_generated/dataModel";
@@ -130,6 +130,28 @@ The book has ${chapters.length} chapters. Generate a compelling prologue that se
     sendMessage(prologueRequest);
   };
 
+  const [isGeneratingCover, setIsGeneratingCover] = useState(false);
+  const generateCoverAction = useAction(
+    api.features.books.generateCover.generateCoverImage
+  );
+
+  const handleGenerateCover = async (customPrompt?: string) => {
+    if (!book) return;
+
+    try {
+      setIsGeneratingCover(true);
+      await generateCoverAction({
+        bookId: book._id,
+        customPrompt,
+      });
+    } catch (error) {
+      console.error("Failed to generate cover:", error);
+      // You might want to show a toast notification here
+    } finally {
+      setIsGeneratingCover(false);
+    }
+  };
+
   // Show loading state while fetching book
   if (book === undefined) {
     return (
@@ -206,6 +228,8 @@ The book has ${chapters.length} chapters. Generate a compelling prologue that se
               onViewChange={setActiveView}
               onSaveChapter={handleSaveChapter}
               onGeneratePrologue={handleGeneratePrologue}
+              onGenerateCover={handleGenerateCover}
+              isGeneratingCover={isGeneratingCover}
             />
           </ResizablePanel>
         </ResizablePanelGroup>

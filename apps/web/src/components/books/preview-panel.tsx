@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useRef, useMemo, forwardRef, useImperativeHandle } from "react";
 import { EditableChapter } from "./editable-chapter";
 import { Markdown } from "@/components/ui/markdown";
+import { BookCover } from "./book-cover";
 
 interface PreviewPanelProps {
   book: any;
@@ -16,6 +17,8 @@ interface PreviewPanelProps {
   onViewChange: (view: "view" | "edit") => void;
   onSaveChapter?: (chapterId: string, content: string) => void;
   onGeneratePrologue?: () => void;
+  onGenerateCover?: (customPrompt?: string) => void;
+  isGeneratingCover?: boolean;
 }
 
 export interface PreviewPanelRef {
@@ -32,6 +35,8 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
       onViewChange,
       onSaveChapter,
       onGeneratePrologue,
+      onGenerateCover,
+      isGeneratingCover,
     },
     ref
   ) => {
@@ -67,13 +72,13 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
       <div className="flex flex-1 flex-col bg-muted/10 h-[calc(100vh-150px)] overflow-auto">
         {(showPrologueSection || regularChapters.length > 0) && (
           <div className="border-b bg-background/50 backdrop-blur-sm sticky top-0 z-10 overflow-hidden">
-            <div className="flex gap-1 px-6 py-2 overflow-x-auto overflow-y-hidden scrollbar-hide">
+            <div className="flex flex-wrap scrollbar-hide">
               {showPrologueSection && (
                 <button
                   onClick={() =>
                     prologueChapter && scrollToChapter(prologueChapter._id)
                   }
-                  className="px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors whitespace-nowrap flex-shrink-0 text-foreground"
+                  className="px-3 py-2 text-xs rounded hover:bg-muted transition-colors whitespace-nowrap flex-shrink-0 text-foreground"
                 >
                   Prologue
                 </button>
@@ -82,7 +87,7 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
                 <button
                   key={item._id}
                   onClick={() => scrollToChapter(item._id)}
-                  className="px-3 py-1.5 text-xs rounded hover:bg-muted transition-colors whitespace-nowrap flex-shrink-0 text-foreground"
+                  className="px-3 py-2 text-xs rounded hover:bg-muted transition-colors whitespace-nowrap flex-shrink-0 text-foreground"
                 >
                   Chapter {item.chapterNumber}
                 </button>
@@ -111,6 +116,13 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
               </Card>
             ) : (
               <div className="space-y-12">
+                {/* Book Cover Section */}
+                <BookCover
+                  book={book}
+                  onGenerateCover={onGenerateCover!}
+                  isGeneratingCover={isGeneratingCover}
+                />
+
                 {/* Prologue Section */}
                 {showPrologueSection && (
                   <div

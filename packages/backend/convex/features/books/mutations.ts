@@ -455,6 +455,28 @@ export const saveCheckpoint = internalMutation({
   },
 });
 
+export const saveCoverImage = internalMutation({
+  args: {
+    bookId: v.id("books"),
+    imageUrl: v.string(),
+    storageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const book = await ctx.db.get(args.bookId);
+    if (!book) throw new Error("Book not found");
+
+    // Note: Old R2 images can be cleaned up using R2 lifecycle policies
+    // or by implementing a separate cleanup action if needed
+    // For now, we'll just overwrite the reference
+
+    await ctx.db.patch(args.bookId, {
+      coverImage: args.imageUrl,
+      coverImageStorageId: args.storageId,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 // ============================================================================
 // Draft Chapter Mutations
 // ============================================================================

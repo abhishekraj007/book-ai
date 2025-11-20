@@ -93,10 +93,14 @@ export default defineSchema({
     status: v.string(), // "draft", "generating", "awaiting_approval", "completed", "failed"
     currentStep: v.string(), // Current generation step (e.g., "ideation", "foundation", "structure", "chapter_3")
     threadId: v.optional(v.string()), // Convex Agent thread ID for conversation continuity
-    
+
     // Generation mode
     generationMode: v.optional(v.union(v.literal("auto"), v.literal("manual"))),
-    
+
+    // Book cover image URL and storage ID
+    coverImage: v.optional(v.string()),
+    coverImageStorageId: v.optional(v.string()),
+
     // Book foundation (gathered in phase 2)
     foundation: v.optional(
       v.object({
@@ -123,7 +127,7 @@ export default defineSchema({
         approach: v.optional(v.string()),
       })
     ),
-    
+
     // Book structure (designed in phase 3)
     structure: v.optional(
       v.object({
@@ -143,7 +147,7 @@ export default defineSchema({
         ),
       })
     ),
-    
+
     // Story ideas (for ideation phase)
     storyIdeas: v.optional(
       v.array(
@@ -154,7 +158,7 @@ export default defineSchema({
         })
       )
     ),
-    
+
     metadata: v.object({
       genre: v.optional(v.string()),
       targetAudience: v.optional(v.string()),
