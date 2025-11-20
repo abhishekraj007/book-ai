@@ -15,6 +15,7 @@ import type * as features_books_export from "../features/books/export.js";
 import type * as features_books_generateCover from "../features/books/generateCover.js";
 import type * as features_books_index from "../features/books/index.js";
 import type * as features_books_mutations from "../features/books/mutations.js";
+import type * as features_books_pages from "../features/books/pages.js";
 import type * as features_books_queries from "../features/books/queries.js";
 import type * as features_credits_index from "../features/credits/index.js";
 import type * as features_credits_mutations from "../features/credits/mutations.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   "features/books/generateCover": typeof features_books_generateCover;
   "features/books/index": typeof features_books_index;
   "features/books/mutations": typeof features_books_mutations;
+  "features/books/pages": typeof features_books_pages;
   "features/books/queries": typeof features_books_queries;
   "features/credits/index": typeof features_credits_index;
   "features/credits/mutations": typeof features_credits_mutations;

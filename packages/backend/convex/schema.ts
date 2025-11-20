@@ -89,6 +89,7 @@ export default defineSchema({
   books: defineTable({
     userId: v.string(), // Better Auth user ID
     title: v.string(),
+    subtitle: v.optional(v.string()),
     type: v.string(), // "fiction", "non_fiction", "storybook", "coloring_book", etc.
     status: v.string(), // "draft", "generating", "awaiting_approval", "completed", "failed"
     currentStep: v.string(), // Current generation step (e.g., "ideation", "foundation", "structure", "chapter_3")
@@ -96,6 +97,11 @@ export default defineSchema({
 
     // Generation mode
     generationMode: v.optional(v.union(v.literal("auto"), v.literal("manual"))),
+
+    // Author information
+    authorName: v.optional(v.string()),
+    authorBio: v.optional(v.string()),
+    publisherName: v.optional(v.string()),
 
     // Book cover image URL and storage ID
     coverImage: v.optional(v.string()),
@@ -232,4 +238,85 @@ export default defineSchema({
   })
     .index("by_book", ["bookId"])
     .index("by_book_status", ["bookId", "status"]),
+
+  // Book pages table - manages all book sections (front matter, main content, back matter)
+  bookPages: defineTable({
+    bookId: v.id("books"),
+    pageType: v.union(
+      // Front Matter
+      v.literal("title_page"),
+      v.literal("copyright"),
+      v.literal("dedication"),
+      v.literal("table_of_contents"),
+      v.literal("foreword"),
+      v.literal("preface"),
+      v.literal("acknowledgments"),
+      // Main Content (references to chapters)
+      v.literal("prologue"),
+      v.literal("chapter"),
+      v.literal("epilogue"),
+      // Back Matter
+      v.literal("about_author"),
+      v.literal("bibliography"),
+      v.literal("appendix")
+    ),
+    order: v.number(), // Determines the sequence of pages in the book
+    title: v.optional(v.string()), // Page title (if applicable)
+
+    // Content - either direct content or reference to chapter
+    content: v.optional(v.string()), // Markdown content for non-chapter pages
+    chapterId: v.optional(v.id("chapters")), // Reference to chapter for chapter-type pages
+
+    // Formatting options
+    formatting: v.optional(
+      v.object({
+        textAlign: v.optional(
+          v.union(v.literal("left"), v.literal("center"), v.literal("right"))
+        ),
+        fontSize: v.optional(
+          v.union(
+            v.literal("small"),
+            v.literal("medium"),
+            v.literal("large"),
+            v.literal("xlarge")
+          )
+        ),
+        fontWeight: v.optional(v.union(v.literal("normal"), v.literal("bold"))),
+        fontStyle: v.optional(
+          v.union(v.literal("normal"), v.literal("italic"))
+        ),
+        lineHeight: v.optional(
+          v.union(v.literal("tight"), v.literal("normal"), v.literal("relaxed"))
+        ),
+        marginTop: v.optional(
+          v.union(
+            v.literal("none"),
+            v.literal("small"),
+            v.literal("medium"),
+            v.literal("large")
+          )
+        ),
+        marginBottom: v.optional(
+          v.union(
+            v.literal("none"),
+            v.literal("small"),
+            v.literal("medium"),
+            v.literal("large")
+          )
+        ),
+        pageBreakBefore: v.optional(v.boolean()),
+        pageBreakAfter: v.optional(v.boolean()),
+      })
+    ),
+
+    status: v.string(), // "empty", "draft", "completed"
+    isOptional: v.boolean(), // Can this page be removed?
+    isVisible: v.boolean(), // Should this page be shown in the book?
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_book", ["bookId"])
+    .index("by_book_order", ["bookId", "order"])
+    .index("by_book_type", ["bookId", "pageType"]),
 });

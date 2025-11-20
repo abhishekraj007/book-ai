@@ -8,6 +8,7 @@ import type { Id } from "@book-ai/backend/convex/_generated/dataModel";
 import { useBookGeneration } from "@/hooks/use-book-generation";
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { BookHeader } from "@/components/books/book-header";
+import { AddPagesSheet } from "@/components/books/add-pages-sheet";
 import { AppSidebar } from "@/components/books/app-sidebar";
 import { ChatPanel } from "@/components/books/chat-panel";
 import {
@@ -152,6 +153,49 @@ The book has ${chapters.length} chapters. Generate a compelling prologue that se
     }
   };
 
+  // Fetch book pages
+  const bookPages = useQuery(
+    api.features.books.pages.getBookPages,
+    book ? { bookId: book._id } : "skip"
+  );
+
+  const missingPages = useQuery(
+    api.features.books.pages.getMissingPages,
+    book ? { bookId: book._id } : "skip"
+  );
+
+  // Book pages mutations
+  const createPage = useMutation(api.features.books.pages.createBookPage);
+  const updatePage = useMutation(api.features.books.pages.updateBookPage);
+  const togglePageVisibility = useMutation(
+    api.features.books.pages.togglePageVisibility
+  );
+
+  const handleAddPage = async (pageType: string) => {
+    if (!book) return;
+    try {
+      await createPage({ bookId: book._id, pageType: pageType as any });
+    } catch (error) {
+      console.error("Failed to add page:", error);
+    }
+  };
+
+  const handleUpdatePage = async (pageId: string, updates: any) => {
+    try {
+      await updatePage({ pageId: pageId as Id<"bookPages">, ...updates });
+    } catch (error) {
+      console.error("Failed to update page:", error);
+    }
+  };
+
+  const handleTogglePageVisibility = async (pageId: string) => {
+    try {
+      await togglePageVisibility({ pageId: pageId as Id<"bookPages"> });
+    } catch (error) {
+      console.error("Failed to toggle page visibility:", error);
+    }
+  };
+
   // Show loading state while fetching book
   if (book === undefined) {
     return (
@@ -188,6 +232,14 @@ The book has ${chapters.length} chapters. Generate a compelling prologue that se
         activeView={activeView}
         onViewChange={setActiveView}
         isGenerating={isLoading}
+        addPagesButton={
+          <AddPagesSheet
+            missingPages={missingPages}
+            existingPages={bookPages?.map((p) => p.pageType) || []}
+            onAddPage={handleAddPage}
+            isLoading={isLoading}
+          />
+        }
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -223,6 +275,7 @@ The book has ${chapters.length} chapters. Generate a compelling prologue that se
               ref={previewPanelRef}
               book={book}
               chapters={chapters}
+              bookPages={bookPages}
               isLoading={isLoading}
               activeView={activeView}
               onViewChange={setActiveView}
@@ -230,6 +283,8 @@ The book has ${chapters.length} chapters. Generate a compelling prologue that se
               onGeneratePrologue={handleGeneratePrologue}
               onGenerateCover={handleGenerateCover}
               isGeneratingCover={isGeneratingCover}
+              onUpdatePage={handleUpdatePage}
+              onTogglePageVisibility={handleTogglePageVisibility}
             />
           </ResizablePanel>
         </ResizablePanelGroup>

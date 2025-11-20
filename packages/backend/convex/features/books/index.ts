@@ -13,6 +13,18 @@ import { internal } from "../../_generated/api";
 export { startGeneration, continueGeneration } from "./actions";
 export { generateCoverImage } from "./generateCover";
 
+// Export book pages queries and mutations
+export {
+  getBookPages,
+  getMissingPages,
+  createBookPage,
+  updateBookPage,
+  reorderBookPages,
+  deleteBookPage,
+  togglePageVisibility,
+  initializeDefaultPages,
+} from "./pages";
+
 // Export public mutation for setting generation mode
 export const setGenerationMode = mutation({
   args: {

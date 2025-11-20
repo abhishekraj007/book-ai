@@ -4,6 +4,7 @@ import { Download, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { ReactNode } from "react";
 
 interface BookHeaderProps {
   onToggleSidebar: () => void;
@@ -11,6 +12,7 @@ interface BookHeaderProps {
   onViewChange: (view: "view" | "edit") => void;
   isGenerating?: boolean;
   version?: string;
+  addPagesButton?: ReactNode;
 }
 
 export function BookHeader({
@@ -19,6 +21,7 @@ export function BookHeader({
   onViewChange,
   isGenerating = false,
   version = "Version 3 (Latest)",
+  addPagesButton,
 }: BookHeaderProps) {
   return (
     <div className="flex h-14 items-center justify-between border-b bg-background px-4">
@@ -45,6 +48,9 @@ export function BookHeader({
           </TabsList>
         </Tabs>
 
+        {/* Add Pages Button */}
+        {addPagesButton}
+
         <Badge variant="outline" className="font-normal">
           {version}
         </Badge>
@@ -61,4 +67,3 @@ export function BookHeader({
     </div>
   );
 }
-
