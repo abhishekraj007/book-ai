@@ -89,81 +89,6 @@ export const updateChapterContent = mutation({
   },
 });
 
-// Export public mutations for draft management
-export const approveDraft = mutation({
-  args: {
-    draftId: v.id("draftChapters"),
-  },
-  returns: v.object({ success: v.boolean() }),
-  handler: async (ctx, { draftId }) => {
-    // Get authenticated user
-    const user = await ctx.auth.getUserIdentity();
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    // Get draft
-    const draft = await ctx.db.get(draftId);
-    if (!draft) {
-      throw new Error("Draft not found");
-    }
-
-    // Verify ownership via book
-    const book = await ctx.db.get(draft.bookId);
-    if (!book || book.userId !== user.subject) {
-      throw new Error("Not authorized");
-    }
-
-    // Call internal mutation to approve
-    await ctx.runMutation(
-      internal.features.books.mutations.approveDraftChapter,
-      {
-        draftId: draftId as string,
-      }
-    );
-
-    return { success: true };
-  },
-});
-
-export const rejectDraft = mutation({
-  args: {
-    draftId: v.id("draftChapters"),
-    reason: v.optional(v.string()),
-  },
-  returns: v.object({ success: v.boolean() }),
-  handler: async (ctx, { draftId, reason }) => {
-    // Get authenticated user
-    const user = await ctx.auth.getUserIdentity();
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    // Get draft
-    const draft = await ctx.db.get(draftId);
-    if (!draft) {
-      throw new Error("Draft not found");
-    }
-
-    // Verify ownership via book
-    const book = await ctx.db.get(draft.bookId);
-    if (!book || book.userId !== user.subject) {
-      throw new Error("Not authorized");
-    }
-
-    // Call internal mutation to reject
-    await ctx.runMutation(
-      internal.features.books.mutations.rejectDraftChapter,
-      {
-        draftId: draftId as string,
-        reason,
-      }
-    );
-
-    return { success: true };
-  },
-});
-
 // ============================================================================
 // Queries
 // ============================================================================
@@ -301,58 +226,6 @@ export const getBook = query({
 });
 
 // ============================================================================
-// Draft Chapters Query
-// ============================================================================
-
-export const getDraftChapters = query({
-  args: {
-    bookId: v.id("books"),
-  },
-  returns: v.array(
-    v.object({
-      _id: v.id("draftChapters"),
-      chapterNumber: v.number(),
-      title: v.string(),
-      content: v.string(),
-      wordCount: v.number(),
-      status: v.string(),
-      generatedAt: v.number(),
-      updatedAt: v.number(),
-    })
-  ),
-  handler: async (ctx, { bookId }) => {
-    // Get authenticated user
-    const user = await ctx.auth.getUserIdentity();
-    if (!user) {
-      return [];
-    }
-
-    // Get book to verify ownership
-    const book = await ctx.db.get(bookId);
-    if (!book || book.userId !== user.subject) {
-      return [];
-    }
-
-    // Get draft chapters
-    const drafts = await ctx.db
-      .query("draftChapters")
-      .withIndex("by_book", (q) => q.eq("bookId", bookId))
-      .collect();
-
-    return drafts.map((draft) => ({
-      _id: draft._id,
-      chapterNumber: draft.chapterNumber,
-      title: draft.title,
-      content: draft.content,
-      wordCount: draft.wordCount,
-      status: draft.status,
-      generatedAt: draft.generatedAt,
-      updatedAt: draft.updatedAt,
-    }));
-  },
-});
-
-// ============================================================================
 // Mutations
 // ============================================================================
 
@@ -399,6 +272,7 @@ export const createBook = mutation({
       type: args.type,
       status: "draft",
       currentStep: "initialization",
+      generationMode: "manual", // Default to manual mode
       metadata: {
         genre: args.genre,
         targetAudience: args.targetAudience,

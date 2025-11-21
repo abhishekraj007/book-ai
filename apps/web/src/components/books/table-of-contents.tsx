@@ -73,14 +73,9 @@ export function TableOfContents({
         )}
 
         <div className="space-y-8 max-w-2xl mx-auto w-full">
-          {/* Copyright Notice */}
-          <p className="text-xs text-muted-foreground text-center uppercase tracking-wide">
-            Copyrighted Material
-          </p>
-
           {/* Contents Heading */}
           <h2 className="text-2xl font-normal text-center tracking-wide">
-            contents
+            Table of contents
           </h2>
 
           {/* Contents List */}
@@ -158,11 +153,6 @@ export function TableOfContents({
 
           {/* Spacer */}
           <div className="flex-1" />
-
-          {/* Copyright Notice */}
-          <p className="text-xs text-muted-foreground text-center uppercase tracking-wide mt-auto">
-            Copyrighted Material
-          </p>
         </div>
       </CardContent>
     </Card>

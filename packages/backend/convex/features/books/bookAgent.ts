@@ -185,7 +185,7 @@ IMPORTANT:
     return `
 CURRENT PHASE: MANUAL GENERATION MODE
 
-⚠️ MANUAL MODE ACTIVE ⚠️
+MANUAL MODE ACTIVE
 Generate one chapter at a time and ask user to continue.
 
 🚨 CRITICAL CONTENT FORMATTING RULES 🚨
@@ -201,7 +201,7 @@ ${processSteps}
 
 CURRENT STATUS: ${completedChapters} of ${totalChapters} chapters complete
 
-⚠️ NEXT ACTION: ${nextAction}
+NEXT ACTION: ${nextAction}
 
 IMPORTANT:
 - ALWAYS ask user before generating the next chapter
@@ -238,10 +238,6 @@ function getPhaseInstructions(bookContext: {
 
   if (!hasStructure) {
     return baseRules + PHASE_GENERATORS.structure(book);
-  }
-
-  if (!generationMode) {
-    return baseRules + PHASE_GENERATORS.modeSelection();
   }
 
   if (generationMode === "auto") {

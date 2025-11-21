@@ -160,12 +160,17 @@ export function MessageItem({
               return null;
             }
 
+            // Check if the question is already in the message text to avoid duplication
+            const messageText = message.text || message.content || "";
+            const isQuestionInText =
+              input?.question && messageText.includes(input.question);
+
             // Always render the question text (even after user responds)
             // But hide suggestions after user responds
             return (
               <div key={`part-${idx}`} className="mt-3 space-y-2">
-                {/* Render the question text - always visible */}
-                {input?.question && (
+                {/* Render the question text - only if not already in text */}
+                {input?.question && !isQuestionInText && (
                   <p className="text-sm font-medium text-foreground mb-2">
                     {input.question}
                   </p>
@@ -281,31 +286,6 @@ export function MessageItem({
           return null;
         })}
       </MessageContent>
-
-      {/* Question with Suggestions - new format from askQuestion tool */}
-      {message.role === "assistant" &&
-        message.metadata?.messageType === "question_with_suggestions" &&
-        !isLoading &&
-        message.status !== "streaming" && (
-          <div className="mt-3 space-y-2">
-            <Suggestions>
-              {(message.metadata as any).suggestions?.map(
-                (suggestion: string, idx: number) => (
-                  <Suggestion
-                    key={idx}
-                    suggestion={suggestion}
-                    onClick={() => onSendMessage(suggestion)}
-                  />
-                )
-              )}
-            </Suggestions>
-            {(message.metadata as any).allowCustomInput !== false && (
-              <p className="text-xs text-muted-foreground text-center">
-                Or type your own answer below
-              </p>
-            )}
-          </div>
-        )}
 
       {/* Approval buttons - only show on last assistant message */}
       {message.role === "assistant" &&

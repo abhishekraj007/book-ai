@@ -10,6 +10,7 @@ import { BookPageCard } from "./book-page-card";
 import { BookCover } from "./book-cover";
 import { AIOptionsMenu } from "./ai-options-menu";
 import { AIPreviewDialog } from "./ai-preview-dialog";
+import { BlockEditor } from "@/components/block-editor";
 
 interface PageRendererProps {
   item: {
@@ -249,7 +250,12 @@ export function PageRenderer({
               {page.title || page.pageType}
             </h2>
             <div className="max-w-none prose prose-lg">
-              <Markdown>{page.content}</Markdown>
+              {/* Render based on editor mode */}
+              {page.editorMode === "blocks" ? (
+                <BlockEditor pageId={page._id} editable={false} />
+              ) : (
+                <Markdown>{page.content}</Markdown>
+              )}
             </div>
           </div>
 

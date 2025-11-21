@@ -36,6 +36,7 @@ import type * as lib_aiConfig from "../lib/aiConfig.js";
 import type * as lib_betterAuth_component from "../lib/betterAuth/component.js";
 import type * as lib_betterAuth_createAuth from "../lib/betterAuth/createAuth.js";
 import type * as lib_betterAuth_index from "../lib/betterAuth/index.js";
+import type * as lib_markdownToBlocks from "../lib/markdownToBlocks.js";
 import type * as lib_revenuecatWebhooks from "../lib/revenuecatWebhooks.js";
 import type * as migrations_addCreditsToProfiles from "../migrations/addCreditsToProfiles.js";
 import type * as model_user from "../model/user.js";
@@ -89,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   "lib/betterAuth/component": typeof lib_betterAuth_component;
   "lib/betterAuth/createAuth": typeof lib_betterAuth_createAuth;
   "lib/betterAuth/index": typeof lib_betterAuth_index;
+  "lib/markdownToBlocks": typeof lib_markdownToBlocks;
   "lib/revenuecatWebhooks": typeof lib_revenuecatWebhooks;
   "migrations/addCreditsToProfiles": typeof migrations_addCreditsToProfiles;
   "model/user": typeof model_user;

@@ -24,11 +24,6 @@ export function TitlePage({
     <Card className={cn("border-none shadow-none bg-transparent", className)}>
       <CardContent className="flex flex-col items-center justify-center min-h-[600px] p-12 text-center">
         <div className="space-y-8 max-w-2xl">
-          {/* Copyright Notice */}
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">
-            Copyrighted Material
-          </p>
-
           {/* Title */}
           <div className="space-y-4">
             <h1 className="text-6xl font-bold tracking-tight leading-tight">
@@ -59,9 +54,6 @@ export function TitlePage({
                   {publisherLocation}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                Copyrighted Material
-              </p>
             </div>
           )}
         </div>

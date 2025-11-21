@@ -18,6 +18,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BlockEditor } from "@/components/block-editor";
 
 interface BookPageCardProps {
   page: any;
@@ -258,6 +259,9 @@ export function BookPageCard({
               <p className="text-sm text-muted-foreground italic">
                 No content yet. Click "Add Content" to begin.
               </p>
+            ) : // Render based on editor mode
+            page.editorMode === "blocks" ? (
+              <BlockEditor pageId={page._id} editable={false} />
             ) : (
               <div className="whitespace-pre-wrap">{page.content}</div>
             )}

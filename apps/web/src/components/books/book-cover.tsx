@@ -45,7 +45,7 @@ export function BookCover({
       <div className="flex flex-col items-center justify-center space-y-6">
         {book.coverImage ? (
           <div className="space-y-4">
-            <div className="relative aspect-[2/3] w-64 overflow-hidden rounded-lg shadow-lg transition-transform hover:scale-105">
+            <div className="relative aspect-[2/3] h-[calc(100vh-350px)] overflow-hidden rounded-lg shadow-lg transition-transform">
               <img
                 src={book.coverImage}
                 alt={`Cover for ${book.title}`}
@@ -74,7 +74,7 @@ export function BookCover({
             </Button>
           </div>
         ) : (
-          <Card className="border-dashed w-64 aspect-[2/3] flex items-center justify-center bg-muted/20">
+          <Card className="border-dashed h-[calc(100vh-350px)] aspect-[2/3] flex items-center justify-center bg-muted/20">
             <CardContent className="flex flex-col items-center justify-center p-6 text-center space-y-4">
               <div className="mb-2 rounded-full bg-muted p-3">
                 <BookOpen className="h-6 w-6 text-muted-foreground" />
