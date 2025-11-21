@@ -12,6 +12,11 @@ import { internal } from "../../_generated/api";
 // Export public actions for book generation
 export { startGeneration, continueGeneration } from "./actions";
 export { generateCoverImage } from "./generateCover";
+export {
+  rewriteContent,
+  enhanceContent,
+  expandContent,
+} from "./contentActions";
 
 // Export book pages queries and mutations
 export {

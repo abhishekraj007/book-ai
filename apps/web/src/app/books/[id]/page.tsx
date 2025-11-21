@@ -153,6 +153,57 @@ The book has ${chapters.length} chapters. Generate a compelling prologue that se
     }
   };
 
+  // Content enhancement actions
+  const rewriteContentAction = useAction(
+    api.features.books.index.rewriteContent
+  );
+  const enhanceContentAction = useAction(
+    api.features.books.index.enhanceContent
+  );
+  const expandContentAction = useAction(api.features.books.index.expandContent);
+
+  const handleRewriteContent = async (
+    bookId: string,
+    contentId: string,
+    type: "chapter" | "page",
+    customInstruction?: string
+  ): Promise<string> => {
+    return await rewriteContentAction({
+      bookId: bookId as Id<"books">,
+      contentId,
+      contentType: type,
+      customInstruction,
+    });
+  };
+
+  const handleEnhanceContent = async (
+    bookId: string,
+    contentId: string,
+    type: "chapter" | "page",
+    customInstruction?: string
+  ): Promise<string> => {
+    return await enhanceContentAction({
+      bookId: bookId as Id<"books">,
+      contentId,
+      contentType: type,
+      customInstruction,
+    });
+  };
+
+  const handleExpandContent = async (
+    bookId: string,
+    contentId: string,
+    type: "chapter" | "page",
+    customInstruction?: string
+  ): Promise<string> => {
+    return await expandContentAction({
+      bookId: bookId as Id<"books">,
+      contentId,
+      contentType: type,
+      customInstruction,
+    });
+  };
+
   // Fetch book pages
   const bookPages = useQuery(
     api.features.books.pages.getBookPages,
@@ -285,6 +336,9 @@ The book has ${chapters.length} chapters. Generate a compelling prologue that se
               isGeneratingCover={isGeneratingCover}
               onUpdatePage={handleUpdatePage}
               onTogglePageVisibility={handleTogglePageVisibility}
+              onRewriteContent={handleRewriteContent}
+              onEnhanceContent={handleEnhanceContent}
+              onExpandContent={handleExpandContent}
             />
           </ResizablePanel>
         </ResizablePanelGroup>

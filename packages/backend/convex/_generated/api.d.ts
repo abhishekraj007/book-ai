@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as features_books_actions from "../features/books/actions.js";
 import type * as features_books_bookAgent from "../features/books/bookAgent.js";
+import type * as features_books_contentActions from "../features/books/contentActions.js";
 import type * as features_books_export from "../features/books/export.js";
 import type * as features_books_generateCover from "../features/books/generateCover.js";
 import type * as features_books_index from "../features/books/index.js";
@@ -63,6 +64,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   "features/books/actions": typeof features_books_actions;
   "features/books/bookAgent": typeof features_books_bookAgent;
+  "features/books/contentActions": typeof features_books_contentActions;
   "features/books/export": typeof features_books_export;
   "features/books/generateCover": typeof features_books_generateCover;
   "features/books/index": typeof features_books_index;

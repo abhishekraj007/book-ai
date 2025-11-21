@@ -10,7 +10,6 @@ import {
   useState,
   useEffect,
 } from "react";
-import { BookCover } from "./book-cover";
 import { PageRenderer } from "./page-renderer";
 import { CarouselNavigation } from "./carousel-navigation";
 import { cn } from "@/lib/utils";
@@ -28,6 +27,24 @@ interface PreviewPanelProps {
   isGeneratingCover?: boolean;
   onUpdatePage?: (pageId: string, updates: any) => void;
   onTogglePageVisibility?: (pageId: string) => void;
+  onRewriteContent?: (
+    bookId: string,
+    contentId: string,
+    type: "chapter" | "page",
+    customInstruction?: string
+  ) => Promise<string>;
+  onEnhanceContent?: (
+    bookId: string,
+    contentId: string,
+    type: "chapter" | "page",
+    customInstruction?: string
+  ) => Promise<string>;
+  onExpandContent?: (
+    bookId: string,
+    contentId: string,
+    type: "chapter" | "page",
+    customInstruction?: string
+  ) => Promise<string>;
 }
 
 export interface PreviewPanelRef {
@@ -49,6 +66,9 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
       isGeneratingCover,
       onUpdatePage,
       onTogglePageVisibility,
+      onRewriteContent,
+      onEnhanceContent,
+      onExpandContent,
     },
     ref
   ) => {
@@ -60,11 +80,20 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
     const orderedContent = useMemo(() => {
       const content: Array<{
         id: string;
-        type: "page" | "chapter";
+        type: "page" | "chapter" | "cover";
         data: any;
         label: string;
         order: number;
       }> = [];
+
+      // Add cover page as first item
+      content.push({
+        id: "cover",
+        type: "cover",
+        data: book,
+        label: "Cover",
+        order: 0,
+      });
 
       // Add book pages (sorted by order)
       const visiblePages = bookPages
@@ -255,6 +284,12 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
                       onTogglePageVisibility={onTogglePageVisibility}
                       onSaveChapter={onSaveChapter}
                       onChapterClick={scrollToChapter}
+                      onGenerateCover={onGenerateCover}
+                      isGeneratingCover={isGeneratingCover}
+                      onViewChange={onViewChange}
+                      onRewriteContent={onRewriteContent}
+                      onEnhanceContent={onEnhanceContent}
+                      onExpandContent={onExpandContent}
                     />
                   </div>
                 )}
@@ -262,14 +297,7 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
             ) : (
               /* EDIT MODE: Scrollable all pages */
               <div className="space-y-12">
-                {/* Book Cover */}
-                <BookCover
-                  book={book}
-                  onGenerateCover={onGenerateCover!}
-                  isGeneratingCover={isGeneratingCover}
-                />
-
-                {/* Render all pages in order */}
+                {/* Render all pages in order (including cover) */}
                 {orderedContent.map((item) => (
                   <div
                     key={item.id}
@@ -288,6 +316,12 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
                       onTogglePageVisibility={onTogglePageVisibility}
                       onSaveChapter={onSaveChapter}
                       onChapterClick={scrollToChapter}
+                      onGenerateCover={onGenerateCover}
+                      isGeneratingCover={isGeneratingCover}
+                      onViewChange={onViewChange}
+                      onRewriteContent={onRewriteContent}
+                      onEnhanceContent={onEnhanceContent}
+                      onExpandContent={onExpandContent}
                     />
                   </div>
                 ))}

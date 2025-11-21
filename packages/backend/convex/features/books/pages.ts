@@ -1,5 +1,6 @@
-import { mutation, query } from "../../_generated/server";
+import { mutation, query, internalQuery } from "../../_generated/server";
 import { v } from "convex/values";
+import { Id } from "../../_generated/dataModel";
 
 // Query to get all pages for a book in order
 export const getBookPages = query({
@@ -313,5 +314,32 @@ export const initializeDefaultPages = mutation({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
+  },
+});
+
+// Internal query to get page by ID (for content actions)
+export const getPageById = internalQuery({
+  args: { pageId: v.string() },
+  returns: v.union(
+    v.object({
+      _id: v.string(),
+      pageType: v.string(),
+      title: v.optional(v.string()),
+      content: v.optional(v.string()),
+      status: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.get(args.pageId as Id<"bookPages">);
+    if (!page) return null;
+
+    return {
+      _id: page._id,
+      pageType: page.pageType,
+      title: page.title,
+      content: page.content,
+      status: page.status,
+    };
   },
 });

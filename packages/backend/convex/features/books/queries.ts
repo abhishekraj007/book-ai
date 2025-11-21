@@ -316,3 +316,43 @@ export const getThreadMessages = query({
     }
   },
 });
+
+// ============================================================================
+// Chapter Query (for Content Actions)
+// ============================================================================
+
+/**
+ * Get a single chapter by ID
+ * Used by content enhancement actions
+ */
+export const getChapterById = internalQuery({
+  args: {
+    chapterId: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.string(),
+      chapterNumber: v.number(),
+      title: v.string(),
+      content: v.string(),
+      wordCount: v.number(),
+      status: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, { chapterId }) => {
+    const chapter = await ctx.db.get(chapterId as Id<"chapters">);
+    if (!chapter) {
+      return null;
+    }
+
+    return {
+      _id: chapter._id,
+      chapterNumber: chapter.chapterNumber,
+      title: chapter.title,
+      content: chapter.content,
+      wordCount: chapter.wordCount,
+      status: chapter.status,
+    };
+  },
+});
