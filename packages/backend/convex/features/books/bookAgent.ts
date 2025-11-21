@@ -112,22 +112,6 @@ IMPORTANT:
 - Be creative with chapter titles
 - Ensure logical flow and progression`,
 
-  modeSelection: () => `
-CURRENT PHASE: GENERATION MODE SELECTION
-
-Your goal is to ask the user which generation mode they prefer.
-
-PROCESS:
-1. Ask: "Would you like me to generate chapters in Auto mode (continuous) or Manual mode (step-by-step)?"
-2. Provide 2 suggestions: "Auto mode" and "Manual mode"
-3. Wait for user's choice
-4. Call setGenerationMode tool with their choice
-5. IMMEDIATELY after setting mode, START generating the first chapter using saveChapter tool
-
-IMPORTANT:
-- Use askQuestion tool for this
-- Only provide 2 suggestions for this specific question`,
-
   autoGeneration: (totalChapters: number, completedChapters: number) => {
     const isComplete = completedChapters >= totalChapters;
     const nextAction = isComplete
@@ -491,43 +475,6 @@ Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCo
           return {
             success: true,
             message: `Book title set to "${args.title}". Continuing with chapter generation.`,
-          };
-        },
-      },
-
-      setGenerationMode: {
-        description:
-          "Set the generation mode (auto or manual). Ask user which mode they prefer before starting chapter generation.",
-        inputSchema: z.object({
-          mode: z.enum(["auto", "manual"]),
-        }),
-        execute: async (args: any) => {
-          console.log("[TOOL] setGenerationMode called:", args.mode);
-          await ctx.runMutation(
-            internal.features.books.mutations.setGenerationMode,
-            {
-              bookId,
-              mode: args.mode,
-            }
-          );
-
-          const isAutoMode = args.mode === "auto";
-
-          // Fetch fresh book data from database to get the structure
-          // (bookContext is stale and doesn't have the structure yet)
-          const freshBook = await ctx.runQuery(
-            internal.features.books.queries.getBookContext,
-            { bookId, includeChapters: false }
-          );
-          const structure = (freshBook.book as any).structure;
-          const totalChapters = structure?.chapterCount || 0;
-
-          return {
-            success: true,
-            message: `Generation mode set to ${args.mode}`,
-            nextAction: isAutoMode
-              ? `⚠️ AUTO MODE ACTIVATED: You must now generate ALL ${totalChapters} chapters in sequence without stopping. Start with Chapter 1 and continue until Chapter ${totalChapters} is complete. DO NOT wait for user input between chapters!`
-              : "MANUAL MODE: Generate Chapter 1, then ask user to continue.",
           };
         },
       },
