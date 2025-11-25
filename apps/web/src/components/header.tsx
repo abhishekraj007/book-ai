@@ -33,7 +33,7 @@ export default function Header() {
   ] as const;
 
   return (
-    <div>
+    <div className="sticky top-0 z-50 bg-background">
       <div className="flex flex-row items-center justify-between px-4 py-3 border-b border-border">
         {/* Mobile Menu Toggle */}
         <div className="flex items-center gap-4">

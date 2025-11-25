@@ -2,22 +2,12 @@ import * as Users from "../../model/user";
 
 /**
  * Helper to check if current user is admin
- * TODO: Implement proper admin role checking based on your auth system
  */
 export async function isAdmin(ctx: any): Promise<boolean> {
   const userData = await Users.getUserAndProfile(ctx);
   if (!userData) return false;
-  
-  // TODO: Replace with actual admin check
-  // Option 1: Check against admin user IDs from env
-  // const adminIds = process.env.ADMIN_USER_IDS?.split(',') || [];
-  // return adminIds.includes(userData.userMetadata._id);
-  
-  // Option 2: Check role field in profile
-  // return userData.profile?.role === 'admin';
-  
-  // For now, return false - YOU MUST IMPLEMENT THIS
-  return false;
+
+  return userData.profile?.isAdmin === true;
 }
 
 /**

@@ -7,6 +7,8 @@ export default defineSchema({
     name: v.optional(v.string()),
     authUserId: v.string(),
     credits: v.optional(v.number()),
+    // Admin role
+    isAdmin: v.optional(v.boolean()),
     // Premium status - can be granted manually or via subscription
     isPremium: v.optional(v.boolean()),
     premiumGrantedBy: v.optional(

@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@book-ai/backend/convex/_generated/api";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Crown, LogOut, Settings } from "lucide-react";
+import { Crown, LogOut, Settings, ShieldCheck } from "lucide-react";
 
 interface UserMenuProps {
   isPremium: boolean;
@@ -30,6 +30,7 @@ export default function UserMenu({ isPremium }: UserMenuProps) {
     userData?.profile?.name || userData?.userMetadata?.name || "User";
   const userEmail = userData?.userMetadata?.email || "";
   const userImage = userData?.userMetadata?.image;
+  const isAdmin = userData?.profile?.isAdmin ?? false;
   const initials = userName
     .split(" ")
     .map((n) => n[0])
@@ -85,6 +86,13 @@ export default function UserMenu({ isPremium }: UserMenuProps) {
           <LogOut className="mr-2 h-4 w-4" />
           Sign Out
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <div className="px-2 py-1.5 text-xs text-muted-foreground flex items-center gap-2">
+          <ShieldCheck
+            className={`h-3.5 w-3.5 ${isAdmin ? "text-green-500" : "text-muted-foreground"}`}
+          />
+          {isAdmin ? "Admin" : "User"}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
