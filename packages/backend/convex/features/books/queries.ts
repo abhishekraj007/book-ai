@@ -56,6 +56,9 @@ export const getBookContext = internalQuery({
       status: v.string(),
       currentStep: v.string(),
       metadata: v.any(),
+      generationMode: v.optional(v.string()),
+      foundation: v.optional(v.any()),
+      structure: v.optional(v.any()),
     }),
     chapters: v.array(
       v.object({
@@ -116,6 +119,9 @@ export const getBookContext = internalQuery({
         status: book.status,
         currentStep: book.currentStep,
         metadata: book.metadata,
+        generationMode: book.generationMode,
+        foundation: book.foundation,
+        structure: book.structure,
       },
       chapters,
     };

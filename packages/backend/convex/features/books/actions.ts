@@ -18,7 +18,7 @@ export const startGeneration = action({
   handler: async (ctx, { bookId, prompt }): Promise<{ threadId: string }> => {
     console.log("[START] Book generation for:", bookId);
 
-    // Get book context
+    // Get book context (includes generationMode, foundation, structure for phase detection)
     const bookContext: {
       book: {
         title: string;
@@ -26,6 +26,9 @@ export const startGeneration = action({
         status: string;
         currentStep: string;
         metadata: any;
+        generationMode?: string;
+        foundation?: any;
+        structure?: any;
       };
       chapters: any[];
     } = await ctx.runQuery(internal.features.books.queries.getBookContext, {
@@ -97,7 +100,7 @@ export const continueGeneration = action({
   ): Promise<{ success: boolean }> => {
     console.log("[CONTINUE] Thread:", threadId, "Prompt:", prompt);
 
-    // Get book context
+    // Get book context (includes generationMode, foundation, structure for phase detection)
     const bookContext: {
       book: {
         title: string;
@@ -105,6 +108,9 @@ export const continueGeneration = action({
         status: string;
         currentStep: string;
         metadata: any;
+        generationMode?: string;
+        foundation?: any;
+        structure?: any;
       };
       chapters: any[];
     } = await ctx.runQuery(internal.features.books.queries.getBookContext, {

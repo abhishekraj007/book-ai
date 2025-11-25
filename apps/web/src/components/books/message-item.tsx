@@ -171,9 +171,14 @@ export function MessageItem({
               <div key={`part-${idx}`} className="mt-3 space-y-2">
                 {/* Render the question text - only if not already in text */}
                 {input?.question && !isQuestionInText && (
-                  <p className="text-sm font-medium text-foreground mb-2">
-                    {input.question}
-                  </p>
+                  // <p className="text-sm font-medium text-foreground mb-2">
+                  //   {input.question}
+                  // </p>
+                  <div className="text-sm [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h1]:mt-3 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1 [&_h3]:mt-2 [&_p]:mb-2 [&_p]:leading-relaxed [&_ul]:mb-2 [&_ol]:mb-2 [&_li]:mb-1">
+                    <Markdown>
+                      {input.question.replace(/\\n/g, "\n\n")}
+                    </Markdown>
+                  </div>
                 )}
 
                 {/* Render suggestions only if user hasn't responded yet */}
@@ -204,11 +209,19 @@ export function MessageItem({
           // Special handling for chapter generation
           if (part.type === "tool-saveChapter") {
             const input = part.input;
+            const hasError =
+              typeof part.output === "string" ||
+              (part.output && !part.output.success);
+            const chapterLabel =
+              input?.chapterNumber === 0
+                ? "Prologue"
+                : `Chapter ${input?.chapterNumber || "..."}`;
+
             return (
               <div key={`part-${idx}`} className="mt-4">
                 <Task defaultOpen={false}>
                   <TaskTrigger
-                    title={`Chapter ${input?.chapterNumber || "..."}: ${input?.title || "Loading..."}`}
+                    title={`${chapterLabel}: ${input?.title || "Loading..."}`}
                   />
                   <TaskContent>
                     <TaskItem>
@@ -221,6 +234,20 @@ export function MessageItem({
                         <Shimmer className="text-xs text-muted-foreground">
                           Generating chapter...
                         </Shimmer>
+                      ) : hasError ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-destructive">
+                            Failed to save chapter.
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onSendMessage("continue")}
+                            className="h-6 text-xs"
+                          >
+                            Retry
+                          </Button>
+                        </div>
                       ) : (
                         <Button
                           variant="link"

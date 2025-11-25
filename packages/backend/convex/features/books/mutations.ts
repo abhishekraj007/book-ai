@@ -121,11 +121,43 @@ export const saveStructure = internalMutation({
 
     // Create placeholder chapters
     const now = Date.now();
+
+    // Create Prologue placeholder (chapter 0) if needed
+    if (structure.hasPrologue) {
+      await ctx.db.insert("chapters", {
+        bookId: bookId as Id<"books">,
+        chapterNumber: 0,
+        title: "Prologue",
+        content: "",
+        currentVersion: 0,
+        status: "pending",
+        wordCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // Create regular chapter placeholders (1 to chapterCount)
     for (let i = 0; i < structure.chapterCount; i++) {
       await ctx.db.insert("chapters", {
         bookId: bookId as Id<"books">,
         chapterNumber: i + 1,
         title: structure.chapterTitles[i] || `Chapter ${i + 1}`,
+        content: "",
+        currentVersion: 0,
+        status: "pending",
+        wordCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // Create Epilogue placeholder if needed
+    if (structure.hasEpilogue) {
+      await ctx.db.insert("chapters", {
+        bookId: bookId as Id<"books">,
+        chapterNumber: structure.chapterCount + 1,
+        title: "Epilogue",
         content: "",
         currentVersion: 0,
         status: "pending",

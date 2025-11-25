@@ -125,7 +125,7 @@ export function PageRenderer({
       };
 
       const handleRegenerate = () => {
-        // TODO: Call AI to regenerate TOC
+        // TODO:  Call AI to regenerate TOC
         console.log("Regenerate TOC");
       };
 

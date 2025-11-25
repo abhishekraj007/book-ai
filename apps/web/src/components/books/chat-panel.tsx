@@ -169,7 +169,12 @@ export function ChatPanel({
 
         {/* Input area - fixed height */}
         <div className="shrink-0 border-t p-4">
-          <PromptInput onSubmit={onSubmit}>
+          <PromptInput
+            onSubmit={(message) => {
+              onSubmit(message);
+              setInput("");
+            }}
+          >
             <PromptInputBody>
               <PromptInputTextarea
                 value={input}

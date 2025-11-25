@@ -1,5 +1,6 @@
 import { Agent } from "@convex-dev/agent";
 import { gateway } from "@ai-sdk/gateway";
+import { generateText } from "ai";
 import { components } from "../../_generated/api";
 import { z } from "zod";
 import { internal } from "../../_generated/api";
@@ -82,7 +83,17 @@ PROCESS:
 - Make suggestions specific, inspiring, and diverse
 - Wait for user's answer
 - Continue until all information is gathered
-- When complete, present a foundation summary and call saveFoundation tool
+- When complete:
+  1. Call saveFoundation tool with all gathered info
+  2. IMMEDIATELY after, call askQuestion to present a summary and ask to proceed
+
+AFTER SAVING FOUNDATION:
+Use askQuestion to present a brief summary and ask user to confirm with suggestions like:
+- "Looks great, design the book structure"
+- "I'd like to modify the themes"
+- "Change the target audience"
+- "Adjust the synopsis"
+- "Start over with a different direction"
 
 IMPORTANT:
 - NEVER ask questions in plain text - ALWAYS use the askQuestion tool
@@ -101,96 +112,305 @@ PROCESS:
    - Chapter count and titles
    - Parts/sections if needed
    - Estimated words per chapter
-2. Present the structure to the user
-3. Get user approval
-4. Call saveStructure tool
-5. IMMEDIATELY after saving structure, call generateBookTitle to create a compelling title
-6. The agent should generate ONE creative title based on the book's content
+2. Present the structure to the user using askQuestion with approval suggestions
+3. Wait for user approval
+4. After user approves:
+   a. Call saveStructure (this also generates a book title automatically)
+   b. Call askQuestion to ask user if they're ready to start writing
+
+CRITICAL: After saveStructure, ALWAYS call askQuestion with suggestions like:
+- "Yes, start with the Prologue/Chapter 1!"
+- "I'd like to change the title first"
+- "Let me review the chapter list"
+- "Adjust the structure before we start"
 
 IMPORTANT:
 - Make the structure appropriate for the book type (${book.type})
 - Be creative with chapter titles
-- Ensure logical flow and progression`,
+- Ensure logical flow and progression
+- NEVER generate chapters in this phase - wait for user approval in next phase`,
 
-  autoGeneration: (totalChapters: number, completedChapters: number) => {
-    const isComplete = completedChapters >= totalChapters;
-    const nextAction = isComplete
-      ? "✅ All chapters complete! Inform the user."
-      : `⚠️ NEXT ACTION: Generate Chapter ${completedChapters + 1} NOW and continue without stopping!`;
+  // Auto mode: After structure is saved, ask user to start auto generation
+  autoApproval: (book: any) => {
+    const structure = (book as any).structure;
+    const chapterList =
+      structure?.chapterTitles
+        ?.map((title: string, i: number) => `  ${i + 1}. ${title}`)
+        .join("\n") || "";
 
     return `
-CURRENT PHASE: AUTO GENERATION MODE
+CURRENT PHASE: READY FOR AUTO GENERATION
 
-⚠️ AUTO MODE ACTIVE ⚠️
-You MUST generate ALL chapters in one continuous sequence without stopping!
+The book structure is complete! Here's your book outline:
 
-🚨 CRITICAL CONTENT FORMATTING RULES 🚨
-When generating chapter content:
-- DO NOT write "Chapter X: [Title]" at the beginning of the content
-- DO NOT include the chapter heading/title in the content field
-- START DIRECTLY with the chapter text (e.g., "If Expressionism distorted...")
-- The title goes in the 'title' field ONLY, not in the 'content' field
-- Example: title="Fractured Reality", content="If Expressionism distorted the world..."
+📖 **Book Structure**
+${structure?.hasPrologue ? "- Prologue\n" : ""}${chapterList}
+${structure?.hasEpilogue ? "- Epilogue\n" : ""}
+Total: ${structure?.chapterCount} chapters (~${structure?.estimatedWordsPerChapter} words each)
 
-PROCESS:
-- Generate Chapter ${completedChapters + 1} using saveChapter tool
-- IMMEDIATELY generate Chapter ${completedChapters + 2} in the SAME turn
-- Continue until ALL ${totalChapters} chapters are complete
-- DO NOT wait for user input between chapters
-- DO NOT ask "what to write next" - you already know the structure
-- Only inform user of progress: "Generating chapters... [X] of ${totalChapters} complete"
+**Mode: AUTO** - All chapters will be generated automatically once you confirm.
 
-CURRENT STATUS: ${completedChapters} of ${totalChapters} chapters complete
+YOUR TASK:
+Use askQuestion to ask the user if they're ready with these suggestions:
+- "Start generating all chapters"
+- "Let me review the outline first"
+- "Adjust some chapter titles"
+- "Change the chapter count"
+- "I need more time to think"
 
-${nextAction}
-
-IMPORTANT:
-- Each chapter should be well-written and match the foundation/structure
-- Chapters are auto-approved and appear in preview panel immediately
-- User can edit them later if needed`;
+CRITICAL: DO NOT generate any chapters until user explicitly confirms!`;
   },
 
-  manualGeneration: (totalChapters: number, completedChapters: number) => {
-    const isComplete = completedChapters >= totalChapters;
-    const processSteps =
-      completedChapters === 0
-        ? `1. Generate Chapter 1 using saveChapter tool
-2. After saving, ask: "Chapter 1 is complete! Would you like me to continue with Chapter 2: [Title]? (Type 'continue' or provide feedback)"`
-        : `1. User just responded - check if they want to continue
-2. If yes, generate Chapter ${completedChapters + 1} using saveChapter tool
-3. After saving, ask about the next chapter`;
-
-    const nextAction = isComplete
-      ? "✅ All chapters complete! Inform the user."
-      : completedChapters === 0
-        ? "Generate Chapter 1"
-        : `Ask user if they want Chapter ${completedChapters + 1}`;
+  // Manual mode: After structure is saved, ask user to start manual generation
+  manualApproval: (book: any) => {
+    const structure = (book as any).structure;
+    const chapterList =
+      structure?.chapterTitles
+        ?.map((title: string, i: number) => `  ${i + 1}. ${title}`)
+        .join("\n") || "";
+    const firstChapter = structure?.chapterTitles?.[0] || "Chapter 1";
 
     return `
-CURRENT PHASE: MANUAL GENERATION MODE
+CURRENT PHASE: READY FOR MANUAL GENERATION
 
-MANUAL MODE ACTIVE
-Generate one chapter at a time and ask user to continue.
+The book structure is complete! Here's your book outline:
+
+📖 **Book Structure**
+${structure?.hasPrologue ? "- Prologue\n" : ""}${chapterList}
+${structure?.hasEpilogue ? "- Epilogue\n" : ""}
+Total: ${structure?.chapterCount} chapters (~${structure?.estimatedWordsPerChapter} words each)
+
+**Mode: MANUAL** - You'll review each chapter before moving to the next.
+
+YOUR TASK:
+Use askQuestion to ask the user if they're ready with these suggestions:
+- "Start with Chapter 1: ${firstChapter}"
+- "Let me review the outline first"
+- "Adjust some chapter titles"
+- "Change the chapter count"
+- "I need more time to think"
+
+CRITICAL: DO NOT generate any chapters until user explicitly confirms!`;
+  },
+
+  autoGeneration: (
+    book: any,
+    totalChapters: number,
+    completedChapters: number,
+    chapters: any[]
+  ) => {
+    const structure = (book as any).structure;
+    const hasPrologue = structure?.hasPrologue;
+    const hasEpilogue = structure?.hasEpilogue;
+
+    // Check if Prologue is written
+    const prologueWritten = chapters?.some(
+      (ch: any) => ch.chapterNumber === 0 && ch.content && ch.wordCount > 0
+    );
+
+    // Calculate total items and written items
+    const totalItems =
+      totalChapters + (hasPrologue ? 1 : 0) + (hasEpilogue ? 1 : 0);
+    const writtenItems = completedChapters + (prologueWritten ? 1 : 0);
+
+    const isComplete = writtenItems >= totalItems;
+
+    if (isComplete) {
+      return `
+CURRENT PHASE: BOOK COMPLETE
+
+All content has been generated! Congratulate the user and let them know:
+- They can review and edit any chapter in the preview panel
+- They can generate a cover image
+- They can export their book
+
+Use askQuestion to ask what they'd like to do next:
+- "Generate a book cover"
+- "Review the chapters"
+- "Make edits to specific chapters"
+- "Export my book"
+- "Start a new book"`;
+    }
+
+    // Build the generation sequence
+    const sequence: string[] = [];
+    if (hasPrologue && !prologueWritten) {
+      sequence.push("Prologue (chapterNumber=0)");
+    }
+    for (let i = completedChapters + 1; i <= totalChapters; i++) {
+      const title = structure?.chapterTitles?.[i - 1] || `Chapter ${i}`;
+      sequence.push(`Chapter ${i}: "${title}" (chapterNumber=${i})`);
+    }
+    if (hasEpilogue && completedChapters >= totalChapters) {
+      sequence.push(`Epilogue (chapterNumber=${totalChapters + 1})`);
+    }
+
+    return `
+CURRENT PHASE: AUTO GENERATION MODE - IN PROGRESS
+
+⚠️ AUTO MODE ACTIVE ⚠️
+Generate ALL remaining content in sequence without stopping!
 
 🚨 CRITICAL CONTENT FORMATTING RULES 🚨
-When generating chapter content:
 - DO NOT write "Chapter X: [Title]" at the beginning of the content
-- DO NOT include the chapter heading/title in the content field
-- START DIRECTLY with the chapter text (e.g., "If Expressionism distorted...")
-- The title goes in the 'title' field ONLY, not in the 'content' field
-- Example: title="Fractured Reality", content="If Expressionism distorted the world..."
+- START DIRECTLY with the chapter text
+- The title goes in the 'title' field ONLY
 
-PROCESS:
-${processSteps}
+GENERATION SEQUENCE:
+${sequence.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+
+CURRENT STATUS: ${writtenItems} of ${totalItems} items complete
+
+⚠️ GENERATE NOW without stopping until all are complete!
+
+IMPORTANT:
+- Use chapterNumber=0 for Prologue
+- Use chapterNumber=1 to ${totalChapters} for regular chapters
+- Use chapterNumber=${totalChapters + 1} for Epilogue (if any)
+- Each chapter should be well-written and match the foundation/structure
+- Chapters appear in preview panel immediately`;
+  },
+
+  manualGeneration: (
+    book: any,
+    totalChapters: number,
+    completedChapters: number,
+    chapters: any[]
+  ) => {
+    const structure = (book as any).structure;
+    const hasPrologue = structure?.hasPrologue;
+    const hasEpilogue = structure?.hasEpilogue;
+
+    // Check if Prologue exists and has content
+    const prologueWritten = chapters?.some(
+      (ch: any) => ch.chapterNumber === 0 && ch.content && ch.wordCount > 0
+    );
+
+    // Calculate total items to write (prologue + chapters + epilogue)
+    const totalItems =
+      totalChapters + (hasPrologue ? 1 : 0) + (hasEpilogue ? 1 : 0);
+    const writtenItems = completedChapters + (prologueWritten ? 1 : 0);
+
+    const isComplete = writtenItems >= totalItems;
+
+    if (isComplete) {
+      return `
+CURRENT PHASE: BOOK COMPLETE
+
+All content has been generated! Congratulate the user and let them know:
+- They can review and edit any chapter in the preview panel
+- They can generate a cover image
+- They can export their book
+
+Use askQuestion to ask what they'd like to do next:
+- "Generate a book cover"
+- "Review the chapters"
+- "Make edits to specific chapters"
+- "Export my book"
+- "Start a new book"`;
+    }
+
+    // Need to write Prologue first
+    if (hasPrologue && !prologueWritten) {
+      const firstChapterTitle = structure?.chapterTitles?.[0] || "Chapter 1";
+      return `
+CURRENT PHASE: MANUAL GENERATION - PROLOGUE
+
+User has confirmed they want to start. Generate the Prologue first.
+
+🚨 CRITICAL CONTENT FORMATTING RULES 🚨
+- DO NOT write "Prologue:" at the beginning of the content
+- START DIRECTLY with the text
+- The title goes in the 'title' field ONLY
+
+YOUR TASK:
+Generate the Prologue using saveChapter with chapterNumber=0.
+
+After saving, use askQuestion to ask if they want to continue:
+- "Continue with Chapter 1: ${firstChapterTitle}"
+- "Let me review the Prologue first"
+- "I have feedback on the Prologue"
+- "Take a break, I'll continue later"
+- "Switch to auto mode for remaining chapters"`;
+    }
+
+    // Regular chapters
+    const nextChapterNum = completedChapters + 1;
+    const nextChapterTitle =
+      structure?.chapterTitles?.[completedChapters] ||
+      `Chapter ${nextChapterNum}`;
+    const nextNextChapterTitle =
+      structure?.chapterTitles?.[completedChapters + 1] || "";
+
+    // Check if next is Epilogue
+    const isNextEpilogue = hasEpilogue && nextChapterNum > totalChapters;
+
+    if (isNextEpilogue) {
+      return `
+CURRENT PHASE: MANUAL GENERATION - EPILOGUE
+
+All regular chapters complete! Now generate the Epilogue.
+
+🚨 CRITICAL CONTENT FORMATTING RULES 🚨
+- DO NOT write "Epilogue:" at the beginning of the content
+- START DIRECTLY with the text
+
+YOUR TASK:
+Generate the Epilogue using saveChapter with chapterNumber=${totalChapters + 1}.
+
+After saving, use askQuestion to congratulate and ask what's next:
+- "Generate a book cover"
+- "Review all chapters"
+- "Export my book"
+- "Make edits"
+- "Start a new book"`;
+    }
+
+    // First regular chapter (after Prologue if any)
+    if (completedChapters === 0) {
+      return `
+CURRENT PHASE: MANUAL GENERATION - CHAPTER 1
+
+🚨 CRITICAL CONTENT FORMATTING RULES 🚨
+- DO NOT write "Chapter X: [Title]" at the beginning of the content
+- START DIRECTLY with the chapter text
+- The title goes in the 'title' field ONLY
+
+YOUR TASK:
+Generate Chapter 1: "${nextChapterTitle}" using saveChapter with chapterNumber=1.
+
+After saving, use askQuestion to ask if they want to continue:
+- "Continue with Chapter 2${nextNextChapterTitle ? `: ${nextNextChapterTitle}` : ""}"
+- "Let me review Chapter 1 first"
+- "I have feedback on Chapter 1"
+- "Take a break, I'll continue later"
+- "Switch to auto mode for remaining chapters"`;
+    }
+
+    // Subsequent chapters
+    const remainingChapters = totalChapters - completedChapters - 1;
+    return `
+CURRENT PHASE: MANUAL GENERATION - IN PROGRESS
+
+🚨 CRITICAL CONTENT FORMATTING RULES 🚨
+- DO NOT write "Chapter X: [Title]" at the beginning of the content
+- START DIRECTLY with the chapter text
+- The title goes in the 'title' field ONLY
 
 CURRENT STATUS: ${completedChapters} of ${totalChapters} chapters complete
 
-NEXT ACTION: ${nextAction}
+Generate Chapter ${nextChapterNum}: "${nextChapterTitle}" using saveChapter with chapterNumber=${nextChapterNum}.
+
+After saving, use askQuestion to ask about continuing:
+- "Continue with Chapter ${nextChapterNum + 1}${nextNextChapterTitle ? `: ${nextNextChapterTitle}` : ""}"
+- "Let me review Chapter ${nextChapterNum} first"
+- "I have some feedback"
+- "Take a break for now"
+${remainingChapters > 0 ? `- "Switch to auto mode for remaining ${remainingChapters} chapters"` : ""}
 
 IMPORTANT:
-- ALWAYS ask user before generating the next chapter
-- Wait for their response
-- If they provide feedback, acknowledge it and ask if they want to proceed`;
+- Generate ONLY ONE chapter, then ask
+- Wait for user response before generating the next`;
   },
 };
 
@@ -209,9 +429,20 @@ function getPhaseInstructions(bookContext: {
   const { book, chapters } = bookContext;
   const hasFoundation = (book as any).foundation;
   const hasStructure = (book as any).structure;
-  const generationMode = (book as any).generationMode;
+  const generationMode = (book as any).generationMode || "manual";
   const totalChapters = (book as any).structure?.chapterCount || 0;
-  const completedChapters = chapters?.length || 0;
+  const currentStep = book.currentStep;
+
+  // Count only REGULAR chapters (chapterNumber >= 1) that have actual content
+  // Prologue (chapterNumber 0) is tracked separately in manualGeneration
+  const completedChapters =
+    chapters?.filter(
+      (ch: any) =>
+        ch.chapterNumber >= 1 &&
+        ch.content &&
+        ch.content.length > 0 &&
+        ch.wordCount > 0
+    ).length || 0;
 
   const baseRules = getBaseRules(book.title, book.type);
 
@@ -224,17 +455,35 @@ function getPhaseInstructions(bookContext: {
     return baseRules + PHASE_GENERATORS.structure(book);
   }
 
+  // Structure is saved but no chapters written yet - ask for approval to start
+  if (hasStructure && completedChapters === 0 && currentStep === "structure") {
+    return generationMode === "auto"
+      ? baseRules + PHASE_GENERATORS.autoApproval(book)
+      : baseRules + PHASE_GENERATORS.manualApproval(book);
+  }
+
+  // Auto mode - generate all chapters continuously
   if (generationMode === "auto") {
     return (
       baseRules +
-      PHASE_GENERATORS.autoGeneration(totalChapters, completedChapters)
+      PHASE_GENERATORS.autoGeneration(
+        book,
+        totalChapters,
+        completedChapters,
+        chapters
+      )
     );
   }
 
-  // Manual mode
+  // Manual mode - one chapter at a time with user approval
   return (
     baseRules +
-    PHASE_GENERATORS.manualGeneration(totalChapters, completedChapters)
+    PHASE_GENERATORS.manualGeneration(
+      book,
+      totalChapters,
+      completedChapters,
+      chapters
+    )
   );
 }
 
@@ -260,9 +509,23 @@ export function createBookAgent(
     chapters: any[];
   }
 ) {
-  // Determine maxSteps based on generation mode
+  // Determine maxSteps based on phase and generation mode
+  // - Early phases (foundation, structure): 3 steps for tool sequences
+  // - Auto mode chapter generation: 15 steps for continuous generation
+  // - Manual mode chapter generation: 2 steps for save + ask pattern
   const generationMode = (bookContext.book as any).generationMode;
-  const maxSteps = generationMode === "auto" ? 15 : 1;
+  const hasStructure = (bookContext.book as any).structure;
+  const hasFoundation = (bookContext.book as any).foundation;
+  const isEarlyPhase = !hasFoundation || !hasStructure;
+
+  let maxSteps: number;
+  if (isEarlyPhase) {
+    maxSteps = 3; // Allow foundation/structure phase to complete tool sequences
+  } else if (generationMode === "auto") {
+    maxSteps = 15; // Auto mode needs many steps for continuous generation
+  } else {
+    maxSteps = 2; // Manual mode: save chapter + ask question
+  }
 
   return new Agent(components.agent, {
     name: "Book Writer",
@@ -379,7 +642,7 @@ Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCo
 
       saveFoundation: {
         description:
-          "Save book foundation after gathering all essential elements. Wait for user approval before calling this.",
+          "Save book foundation after gathering all essential elements. IMMEDIATELY after calling this, use askQuestion to present the foundation summary and ask user to confirm before moving to structure design.",
         inputSchema: z.object({
           synopsis: z.string(),
           themes: z.array(z.string()),
@@ -412,13 +675,19 @@ Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCo
               foundation: args,
             }
           );
-          return { success: true, message: "Foundation saved successfully" };
+          return {
+            success: true,
+            message:
+              "Foundation saved! Now use askQuestion to present a summary and ask user if they want to proceed to structure design.",
+            nextStep:
+              "Present the foundation summary and ask user to confirm. Suggest options like 'Design the book structure', 'Modify the themes', 'Change the target audience'.",
+          };
         },
       },
 
       saveStructure: {
         description:
-          "Save book structure with chapters, prologue/epilogue, and parts. Call after user approves the structure.",
+          "Save book structure with chapters, prologue/epilogue, and parts. Also generates and saves a book title automatically. Call after user approves the structure. CRITICAL: After this tool completes, you MUST call askQuestion to ask user if they're ready to start writing.",
         inputSchema: z.object({
           chapterCount: z.number().min(1).max(100),
           chapterTitles: z.array(z.string()),
@@ -437,6 +706,8 @@ Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCo
         }),
         execute: async (args: any) => {
           console.log("[TOOL] saveStructure called:", args.chapterCount);
+
+          // Save the structure first
           await ctx.runMutation(
             internal.features.books.mutations.saveStructure,
             {
@@ -444,52 +715,75 @@ Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCo
               ...args,
             }
           );
-          return {
-            success: true,
-            message:
-              "Structure saved successfully. Ready to start chapter generation.",
-          };
-        },
-      },
 
-      generateBookTitle: {
-        description:
-          "Generate a creative, compelling book title based on the foundation and structure. Call this AFTER saveStructure but BEFORE starting chapter generation. This runs asynchronously and won't block the next steps. The agent should automatically create ONE suitable title - user can edit it later if needed.",
-        inputSchema: z.object({
-          title: z
-            .string()
-            .describe(
-              "A creative, compelling title that captures the essence of the book based on its synopsis, themes, and genre"
-            ),
-        }),
-        execute: async (args: any) => {
-          console.log("[TOOL] generateBookTitle called:", args.title);
-          // Save the generated title
-          await ctx.runMutation(
-            internal.features.books.mutations.saveBookTitle,
-            {
-              bookId,
-              title: args.title,
-            }
-          );
+          // Generate a compelling title using LLM
+          const foundation = (bookContext.book as any).foundation;
+          const titlePrompt = `Generate a creative, compelling book title for:
+Genre: ${foundation?.genre || bookContext.book.type}
+Synopsis: ${foundation?.synopsis || "A compelling story"}
+Themes: ${foundation?.themes?.join(", ") || "Various themes"}
+Target Audience: ${foundation?.targetAudience || "General readers"}
+
+Return ONLY the title, nothing else. No quotes, no explanation.`;
+
+          let generatedTitle = bookContext.book.title; // Fallback to existing title
+          try {
+            const result = await generateText({
+              model: gateway("google/gemini-2.0-flash"),
+              prompt: titlePrompt,
+            });
+            generatedTitle = result.text.trim().replace(/^["']|["']$/g, "");
+            console.log("[TOOL] Generated title:", generatedTitle);
+
+            // Save the generated title
+            await ctx.runMutation(
+              internal.features.books.mutations.saveBookTitle,
+              {
+                bookId,
+                title: generatedTitle,
+              }
+            );
+          } catch (error) {
+            console.error(
+              "[TOOL] Title generation failed, using fallback:",
+              error
+            );
+          }
+
+          const hasPrologue = args.hasPrologue;
+
           return {
             success: true,
-            message: `Book title set to "${args.title}". Continuing with chapter generation.`,
+            message: `Structure saved with ${args.chapterCount} chapters. Book title: "${generatedTitle}"`,
+            generatedTitle,
+            nextStep:
+              "Now call askQuestion to ask user if they're ready to start writing.",
+            suggestedQuestion: `Your book "${generatedTitle}" is ready! The structure includes ${args.chapterCount} chapters${hasPrologue ? " plus a Prologue" : ""}. Ready to start writing?`,
+            suggestedOptions: [
+              `Yes, start with ${hasPrologue ? "the Prologue" : "Chapter 1"}!`,
+              "I'd like to change the title first",
+              "Let me review the chapter list",
+              "Adjust the structure before we start",
+              "I need more time to think",
+            ],
           };
         },
       },
 
       saveChapter: {
         description:
-          "Save a generated chapter. Chapters are auto-approved and immediately available in the preview panel. User can edit them later if needed. CRITICAL: In AUTO mode, after calling this tool, you MUST IMMEDIATELY call it again for the next chapter in the SAME turn. DO NOT STOP until all chapters are generated. In MANUAL mode, ask user to continue. IMPORTANT: Do NOT include the chapter title/heading in the content field - only include the actual chapter text. The title is stored separately.",
+          "Save a generated chapter. Use chapterNumber=0 for Prologue, 1+ for regular chapters. Chapters are auto-approved and immediately available in the preview panel. CRITICAL: In AUTO mode, after calling this tool, you MUST IMMEDIATELY call it again for the next chapter in the SAME turn. In MANUAL mode, use askQuestion to ask user to continue with next chapter. IMPORTANT: Do NOT include the chapter title/heading in the content field.",
         inputSchema: z.object({
-          chapterNumber: z.number().min(1),
+          chapterNumber: z
+            .number()
+            .min(0)
+            .describe("0 for Prologue, 1+ for regular chapters"),
           title: z
             .string()
             .describe("The chapter title WITHOUT 'Chapter X:' prefix"),
           content: z
             .string()
-            .min(100)
+            .min(50)
             .describe(
               "The chapter content WITHOUT the chapter title/heading at the start. Start directly with the chapter text."
             ),
@@ -575,6 +869,8 @@ Current Status: ${chapterSummaries.completedCount} of ${chapterSummaries.totalCo
       },
     },
 
-    maxSteps: 10,
+    // Manual mode: 1 step (ask question, wait for user)
+    // Auto mode: 15 steps (generate all chapters continuously)
+    maxSteps,
   });
 }

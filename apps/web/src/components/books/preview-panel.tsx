@@ -12,7 +12,15 @@ import {
 } from "react";
 import { PageRenderer } from "./page-renderer";
 import { CarouselNavigation } from "./carousel-navigation";
+import { PhaseAnimation } from "./phase-animation";
 import { cn } from "@/lib/utils";
+
+// Early phases where we show the phase animation instead of book content
+const EARLY_PHASES = ["initialization", "ideation", "foundation", "structure"];
+
+function isInEarlyPhase(currentStep: string): boolean {
+  return EARLY_PHASES.includes(currentStep);
+}
 
 interface PreviewPanelProps {
   book: any;
@@ -215,6 +223,21 @@ export const PreviewPanel = forwardRef<PreviewPanelRef, PreviewPanelProps>(
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }, [activeView, currentPageIndex, orderedContent.length]);
+
+    // Check if we're in early phases (before chapter generation)
+    const showPhaseAnimation = isInEarlyPhase(book?.currentStep || "");
+
+    // Show phase animation during discovery/planning phases
+    if (showPhaseAnimation) {
+      return (
+        <div className="flex flex-1 flex-col bg-muted/10 h-[calc(100vh-150px)] overflow-auto relative">
+          <PhaseAnimation
+            currentStep={book?.currentStep || "initialization"}
+            bookTitle={book?.title}
+          />
+        </div>
+      );
+    }
 
     return (
       <div className="flex flex-1 flex-col bg-muted/10 h-[calc(100vh-150px)] overflow-auto relative">
